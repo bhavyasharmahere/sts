@@ -1,0 +1,1244 @@
+import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react";
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
+
+type Product = {
+  id: string | number;
+  name: string;
+  category: "Electric" | "Pharma" | string;
+  brand: string;
+  image: string;
+  specs: string;
+};
+
+type CartItem = {
+  product: Product;
+  qty: number;
+};
+
+const WHATSAPP_NUMBER = "919430591173";
+const CART_STORAGE_KEY = "energalife_cart_v1";
+const SHEET_ID = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
+const SHEET_ENDPOINT = `https://opensheet.elk.sh/${SHEET_ID}/Sheet1`;
+const FALLBACK_PRODUCTS: Product[] = [
+  {
+    id: "EL-1001",
+    name: "NeoVolt 12kW Smart Inverter",
+    category: "Electric",
+    brand: "Voltara",
+    image: "https://images.unsplash.com/photo-1581091012184-7d3bcf97d03b?q=80&w=1600&auto=format&fit=crop",
+    specs: "Pure sine, app control, 98% efficiency, IP54",
+  },
+  {
+    id: "EL-1002",
+    name: "LumenCore LED Panel 600x600",
+    category: "Electric",
+    brand: "LumenCore",
+    image: "https://images.unsplash.com/photo-1558611848-73f7eb4001a1?q=80&w=1600&auto=format&fit=crop",
+    specs: "40W, 4000K, CRI>90, UGR<19, 50k hrs",
+  },
+  {
+    id: "EL-1003",
+    name: "AeroCharge EV Wallbox 22kW",
+    category: "Electric",
+    brand: "AeroCharge",
+    image: "https://images.unsplash.com/photo-1612015973917-8d511a5d4d4b?q=80&w=1600&auto=format&fit=crop",
+    specs: "Type-2, OCPP 1.6J, RFID, dynamic load balancing",
+  },
+  {
+    id: "PH-2001",
+    name: "CardioStat XR 50mg",
+    category: "Pharma",
+    brand: "Axion Labs",
+    image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=1600&auto=format&fit=crop",
+    specs: "Extended release, 30 tablets, prescription",
+  },
+  {
+    id: "PH-2002",
+    name: "NeuroCalm B-Complex",
+    category: "Pharma",
+    brand: "NovaCare",
+    image: "https://images.unsplash.com/photo-1586232702178-f044c5f4d4b3?q=80&w=1600&auto=format&fit=crop",
+    specs: "High potency, vegan, 60 capsules, GMP",
+  },
+  {
+    id: "PH-2003",
+    name: "DermaHeal Ointment 30g",
+    category: "Pharma",
+    brand: "Skinvance",
+    image: "https://images.unsplash.com/photo-1584309684110-0c168a1e8c5d?q=80&w=1600&auto=format&fit=crop",
+    specs: "Antiseptic, soothing, dermatologist tested",
+  },
+  {
+    id: "EL-1004",
+    name: "GridLink LT Panel 630A",
+    category: "Electric",
+    brand: "Voltara",
+    image: "https://images.unsplash.com/photo-1590650046871-92c16b451959?q=80&w=1600&auto=format&fit=crop",
+    specs: "Form 4b, IP42, copper busbar, modular",
+  },
+  {
+    id: "PH-2004",
+    name: "ImmunoMax C+Zinc",
+    category: "Pharma",
+    brand: "NovaCare",
+    image: "https://images.unsplash.com/photo-1603398748227-30f62ea3c7e2?q=80&w=1600&auto=format&fit=crop",
+    specs: "1000mg Vit-C, 15mg Zinc, 90 tablets",
+  },
+];
+
+function cx(...cls: Array<string | false | null | undefined>) {
+  return cls.filter(Boolean).join(" ");
+}
+
+function readCartFromStorage(): CartItem[] {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as CartItem[];
+    return Array.isArray(parsed)
+      ? parsed.filter((i) => i?.product?.id !== undefined && Number.isFinite(i?.qty) && i.qty > 0)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function useScrollProgress() {
+  const [p, setP] = useState(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const h = document.documentElement;
+      const total = h.scrollHeight - h.clientHeight;
+      setP(total > 0 ? (h.scrollTop / total) * 100 : 0);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return p;
+}
+
+const Glass = memo(function Glass({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cx(
+        "relative rounded-[28px] border border-white/50 bg-white/60 shadow-[0_10px_40px_-10px_rgba(2,6,23,0.15)] backdrop-blur-xl",
+        "supports-[backdrop-filter]:bg-white/50",
+        className
+      )}
+    >
+      <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-gradient-to-b from-white/40 to-transparent" />
+      {children}
+    </div>
+  );
+});
+
+const Pill = ({
+  active,
+  children,
+  onClick,
+}: {
+  active?: boolean;
+  children: React.ReactNode;
+  onClick?: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    className={cx(
+      "group relative inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition-all",
+      "border border-slate-200 bg-white/70 text-slate-700 backdrop-blur hover:border-slate-300 hover:bg-white/90 hover:shadow-sm",
+      active && "border-transparent bg-gradient-to-r from-indigo-600 to-cyan-500 text-white shadow-lg shadow-indigo-500/25"
+    )}
+  >
+    <span className="relative z-10">{children}</span>
+    <span
+      className={cx(
+        "absolute inset-0 rounded-full opacity-0 transition-opacity group-hover:opacity-100",
+        !active && "bg-[radial-gradient(60%_60%_at_50%_50%,rgba(99,102,241,0.12),transparent)]"
+      )}
+    />
+  </button>
+);
+
+const Logo = () => (
+  <div className="flex items-center gap-3">
+    <div className="relative grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-600 shadow-lg shadow-emerald-500/25">
+      <div className="absolute inset-[2px] rounded-[14px] bg-white/10 backdrop-blur-sm" />
+      <svg viewBox="0 0 32 32" className="relative h-6 w-6 text-white">
+        <path
+          d="M6 16c0-5.523 4.477-10 10-10 1.9 0 3.678.53 5.195 1.452l-3.236 5.604A4.99 4.99 0 0 0 16 12c-2.761 0-5 2.239-5 5s2.239 5 5 5c1.1 0 2.117-.355 2.941-.956l3.236 5.604A9.954 9.954 0 0 1 16 28c-5.523 0-10-4.477-10-10Z"
+          fill="currentColor"
+          opacity="0.9"
+        />
+        <circle cx="20.5" cy="11.5" r="3.5" fill="white" />
+      </svg>
+    </div>
+    <div className="leading-tight">
+      <div className="text-lg font-semibold tracking-tight text-slate-900">EnergaLife</div>
+      <div className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Electric • Pharma</div>
+    </div>
+  </div>
+);
+
+function useProducts() {
+  const [data, setData] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function run() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(SHEET_ENDPOINT, { signal: controller.signal, cache: "no-store" });
+        if (!res.ok) throw new Error(`Sheet error ${res.status}`);
+        const rows = (await res.json()) as any[];
+        const mapped: Product[] = rows
+          .map((r, i) => ({
+            id: r.id ?? r.ID ?? i + 1,
+            name: r.name ?? r.Name ?? "Unnamed product",
+            category: (r.category ?? r.Category ?? "Electric") as string,
+            brand: r.brand ?? r.Brand ?? "Generic",
+            image: r.image ?? r.Image ?? "https://images.unsplash.com/photo-1518779578993-ec3579fee39f?q=80&w=1600&auto=format&fit=crop",
+            specs: r.specs ?? r.Specs ?? "",
+          }))
+          .filter((p) => p.name && p.image);
+        if (!cancelled) setData(mapped.length ? mapped : FALLBACK_PRODUCTS);
+      } catch (e) {
+        if (!cancelled) {
+          setError("Using local demo products");
+          setData(FALLBACK_PRODUCTS);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
+
+  return { data, loading, error };
+}
+
+const LazyImg = ({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) => {
+  const ref = useRef<HTMLImageElement>(null);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    const img = ref.current;
+    if (!img) return;
+    if ("loading" in HTMLImageElement.prototype) {
+      img.loading = "lazy";
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            const el = e.target as HTMLImageElement;
+            if (el.dataset.src) {
+              el.src = el.dataset.src;
+              delete el.dataset.src;
+            }
+            io.disconnect();
+          }
+        });
+      },
+      { rootMargin: "200px" }
+    );
+    io.observe(img);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div className="relative overflow-hidden bg-slate-100">
+      <img
+        ref={ref}
+        data-src={src}
+        alt={alt}
+        onLoad={() => setLoaded(true)}
+        className={cx(
+          "h-full w-full object-cover transition-[opacity,transform] duration-700 ease-out",
+          loaded ? "opacity-100 scale-100" : "opacity-0 scale-105",
+          className
+        )}
+      />
+      <div
+        className={cx(
+          "absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-white transition-opacity duration-700",
+          loaded ? "opacity-0" : "opacity-100"
+        )}
+      />
+    </div>
+  );
+};
+
+const Card = memo(function Card({
+  product,
+  onAddToCart,
+}: {
+  product: Product;
+  onAddToCart: (product: Product) => void;
+}) {
+  const [added, setAdded] = useState(false);
+
+  const handleAdd = () => {
+    onAddToCart(product);
+    setAdded(true);
+    window.setTimeout(() => setAdded(false), 900);
+  };
+
+  return (
+    <div className="group relative">
+      <div className="absolute -inset-[1px] rounded-[30px] bg-gradient-to-b from-slate-200 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+      <Glass className="overflow-hidden rounded-[28px]">
+        <div className="relative aspect-[4/3] w-full">
+          <LazyImg src={product.image} alt={product.name} className="h-full w-full" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent" />
+          <div className="absolute left-3 top-3 flex gap-2">
+            <span className="rounded-full border border-white/40 bg-black/40 px-3 py-1 text-xs font-medium text-white backdrop-blur">
+              {product.category}
+            </span>
+            <span className="rounded-full border border-white/40 bg-white/90 px-3 py-1 text-xs font-medium text-slate-800 backdrop-blur">
+              {product.brand}
+            </span>
+          </div>
+        </div>
+        <div className="space-y-3 p-5">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="line-clamp-2 text-lg font-semibold tracking-tight text-slate-900">{product.name}</h3>
+            <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
+          </div>
+          <p className="line-clamp-2 text-sm leading-relaxed text-slate-600">{product.specs}</p>
+          <div className="flex items-center justify-between pt-2">
+            <button
+              onClick={handleAdd}
+              className={cx(
+                "group/btn relative inline-flex items-center gap-2 overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold text-white transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0",
+                added ? "bg-emerald-600 hover:shadow-emerald-600/20" : "bg-slate-900 hover:shadow-slate-900/20"
+              )}
+            >
+              <span className="relative z-10">{added ? "Added" : "Add to cart"}</span>
+              <svg
+                className="relative z-10 h-4 w-4 transition-transform group-hover/btn:translate-x-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {added ? (
+                  <path d="m20 6-11 11-5-5" />
+                ) : (
+                  <>
+                    <circle cx="9" cy="20" r="1" />
+                    <circle cx="18" cy="20" r="1" />
+                    <path d="M3 4h2l2 11h11l2-8H7" />
+                  </>
+                )}
+              </svg>
+              <span className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-cyan-500 opacity-0 transition-opacity group-hover/btn:opacity-100" />
+            </button>
+            <div className="text-right text-xs text-slate-500">
+              <div>SKU</div>
+              <div className="font-mono text-slate-700">{String(product.id)}</div>
+            </div>
+          </div>
+        </div>
+      </Glass>
+    </div>
+  );
+});
+
+function Header({ cartCount }: { cartCount: number }) {
+  const [open, setOpen] = useState(false);
+  const progress = useScrollProgress();
+  const [scrolled, setScrolled] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const isActive = (path: string) => location.pathname === path;
+
+  const linkCls = (path: string) =>
+    cx(
+      "relative rounded-full px-4 py-2 text-sm font-medium transition",
+      isActive(path) ? "text-slate-900 bg-slate-100" : "text-slate-600 hover:text-slate-900"
+    );
+
+  return (
+    <header className="sticky top-0 z-50">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px">
+        <div
+          className="h-px w-full origin-left bg-gradient-to-r from-emerald-500 via-cyan-500 to-indigo-600"
+          style={{ transform: `scaleX(${progress / 100})` }}
+        />
+      </div>
+      <div className={cx("mx-auto max-w-7xl px-4 pt-4 transition-[padding]", scrolled && "pt-2")}>
+        <div
+          className={cx(
+            "flex items-center justify-between rounded-[28px] border border-white/60 bg-white/70 px-4 py-3 shadow-[0_10px_30px_-10px_rgba(2,6,23,0.15)] backdrop-blur-xl transition-all",
+            scrolled && "shadow-[0_8px_24px_-12px_rgba(2,6,23,0.25)]"
+          )}
+        >
+          <Link to="/" className="text-left">
+            <Logo />
+          </Link>
+          <nav className="hidden items-center gap-1 md:flex">
+            <Link to="/" className={linkCls("/")}>Home</Link>
+            <Link to="/products" className={linkCls("/products")}>Products</Link>
+            <Link to="/cart" className={linkCls("/cart")}>Cart</Link>
+            <Link to="/#about" className={linkCls("/#about")}>About</Link>
+            <Link to="/#contact" className={linkCls("/#contact")}>Contact</Link>
+            <Link
+              to="/cart"
+              className="ml-2 inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5 hover:shadow-xl"
+            >
+              <span>Cart ({cartCount})</span>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </Link>
+          </nav>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white/80 backdrop-blur transition hover:bg-white md:hidden"
+            aria-label="Menu"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              className={cx("transition-transform", open && "rotate-90")}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
+        <div
+          className={cx(
+            "grid overflow-hidden rounded-3xl border border-white/60 bg-white/80 backdrop-blur-xl shadow-xl transition-[grid-template-rows,opacity] md:hidden",
+            open ? "mt-2 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          )}
+        >
+          <div className="min-h-0">
+            <div className="p-2">
+              <Link to="/" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Home</Link>
+              <Link to="/products" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Products</Link>
+              <Link to="/cart" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Cart ({cartCount})</Link>
+              <Link to="/#about" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">About</Link>
+              <Link to="/#contact" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Contact</Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function Hero() {
+  const slides = [
+    {
+      title: "Clean Energy, Clinical Precision",
+      subtitle: "Powering industries with reliable electric systems and trusted pharmaceutical supplies.",
+      image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=1920&auto=format&fit=crop",
+    },
+    {
+      title: "Smart Electric for Modern Facilities",
+      subtitle: "Panels, inverters, EV charging, and lighting engineered for efficiency and safety.",
+      image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=1920&auto=format&fit=crop",
+    },
+    {
+      title: "Pharma You Can Rely On",
+      subtitle: "Quality-assured medicines, supplements, and topical care from certified manufacturers.",
+      image: "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?q=80&w=1920&auto=format&fit=crop",
+    },
+  ];
+  const [index, setIndex] = useState(0);
+  const timer = useRef<number | null>(null);
+  const navigate = useNavigate();
+
+  const go = useCallback((i: number) => setIndex(() => (i + slides.length) % slides.length), [slides.length]);
+
+  useEffect(() => {
+    if (timer.current) window.clearInterval(timer.current);
+    timer.current = window.setInterval(() => go(index + 1), 5000);
+    return () => {
+      if (timer.current) window.clearInterval(timer.current);
+    };
+  }, [index, go]);
+
+  return (
+    <section className="relative mx-auto mt-6 max-w-7xl px-4">
+      <div className="relative overflow-hidden rounded-[36px] border border-white/60 bg-white/60 shadow-[0_20px_60px_-20px_rgba(2,6,23,0.25)] backdrop-blur-xl">
+        <div className="absolute inset-0">
+          {slides.map((s, i) => (
+            <div
+              key={i}
+              className={cx("absolute inset-0 transition-opacity duration-1000 ease-out", i === index ? "opacity-100" : "opacity-0")}
+              aria-hidden={i !== index}
+            >
+              <img src={s.image} alt="" className="h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-900/50 to-transparent" />
+            </div>
+          ))}
+        </div>
+        <div className="relative grid min-h-[64vh] grid-cols-1 items-center gap-8 p-8 md:grid-cols-2 md:p-12 lg:p-16">
+          <div className="relative z-10 space-y-6 text-white">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.25)]" />
+              Enterprise • Electric & Pharma
+            </div>
+            <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl lg:text-6xl">{slides[index].title}</h1>
+            <p className="max-w-xl text-base leading-relaxed text-white/80 md:text-lg">{slides[index].subtitle}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => navigate("/products")}
+                className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg shadow-black/20 transition hover:-translate-y-0.5"
+              >
+                <span className="relative z-10">View all products</span>
+                <svg className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+                <span className="absolute inset-0 bg-gradient-to-r from-emerald-300/60 to-cyan-300/60 opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
+              <Link to="/#about" className="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
+                Learn more
+              </Link>
+            </div>
+            <div className="mt-6 flex items-center gap-3">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => go(i)}
+                  className={cx("h-1.5 w-8 rounded-full bg-white/40 transition-all", i === index && "w-12 bg-white")}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="relative z-10 hidden md:block">
+            <Glass className="ml-auto max-w-md p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-800">Featured snapshot</p>
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-700">Live</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {["Efficiency", "Safety", "Support"].map((k) => (
+                  <div key={k} className="rounded-2xl border border-white/60 bg-white/70 p-4 backdrop-blur">
+                    <div className="text-xs text-slate-500">{k}</div>
+                    <div className="mt-1 text-xl font-semibold text-slate-900">99%</div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div className="h-full w-[99%] rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 rounded-2xl border border-white/60 bg-gradient-to-b from-white/80 to-white/40 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-slate-900 text-white">24/7</div>
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">Dedicated enterprise support</div>
+                    <div className="text-xs text-slate-600">Priority SLAs • Remote diagnostics • On-site assistance</div>
+                  </div>
+                </div>
+              </div>
+            </Glass>
+          </div>
+        </div>
+        <div className="pointer-events-none absolute inset-0 rounded-[36px] ring-1 ring-inset ring-white/30" />
+      </div>
+    </section>
+  );
+}
+
+function About() {
+  return (
+    <section id="about" className="mx-auto max-w-7xl px-4 py-16 md:py-24">
+      <div className="grid items-start gap-8 md:grid-cols-2">
+        <div className="space-y-5">
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">About EnergaLife</div>
+          <h2 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">
+            A unified platform for electric infrastructure and pharmaceutical supply.
+          </h2>
+          <p className="max-w-prose text-slate-600">
+            We partner with facility managers, clinics, and industrial buyers to deliver certified products, fast procurement, and dependable post-sales service. Our catalog spans EV charging, LT/HT panels, LED systems, and essential pharma SKUs.
+          </p>
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            {[
+              { k: "15+", v: "Years combined expertise" },
+              { k: "120+", v: "SKU catalogue" },
+              { k: "99.2%", v: "On-time fulfillment" },
+              { k: "24/7", v: "Priority support" },
+            ].map((s) => (
+              <Glass key={s.k} className="p-4">
+                <div className="text-2xl font-semibold text-slate-900">{s.k}</div>
+                <div className="mt-1 text-sm text-slate-600">{s.v}</div>
+              </Glass>
+            ))}
+          </div>
+        </div>
+        <div className="relative">
+          <div className="absolute -inset-6 -z-10 rounded-[40px] bg-gradient-to-br from-emerald-100 via-cyan-100 to-indigo-100 opacity-60 blur-2xl" />
+          <Glass className="overflow-hidden">
+            <div className="grid grid-cols-2 gap-[1px] bg-slate-200/60">
+              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?q=80&w=1600&auto=format&fit=crop" alt="" />
+              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1582719478427-2f3f8a1c6d3e?q=80&w=1600&auto=format&fit=crop" alt="" />
+              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1583511655826-05700d52f4d9?q=80&w=1600&auto=format&fit=crop" alt="" />
+              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=1600&auto=format&fit=crop" alt="" />
+            </div>
+          </Glass>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CategoryPreview({ products }: { products: Product[] }) {
+  const navigate = useNavigate();
+  const electric = products.filter((p) => /electric/i.test(p.category)).slice(0, 2);
+  const pharma = products.filter((p) => /pharma/i.test(p.category)).slice(0, 2);
+
+  return (
+    <section className="mx-auto max-w-7xl px-4 pb-16">
+      <div className="mb-8 text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">Our divisions</div>
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">Two industries. One partner.</h2>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Glass className="group overflow-hidden p-6 transition hover:shadow-xl">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Electric</div>
+              <h3 className="mt-3 text-xl font-semibold text-slate-900">Power systems & lighting</h3>
+              <p className="mt-2 max-w-sm text-sm text-slate-600">Panels, inverters, EV charging, and LED systems for commercial and industrial facilities.</p>
+            </div>
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M13 2 4.09 12.11a2 2 0 0 0 .17 2.72l.66.67a2 2 0 0 0 2.72.17L18 7" />
+                <path d="m15 10 3.29-3.3a1 1 0 0 1 1.42 0l.58.59a1 1 0 0 1 0 1.41l-3.29 3.3" />
+                <path d="m10 15-2.5 5.5" />
+              </svg>
+            </div>
+          </div>
+          <div className="mt-6 flex items-center gap-4">
+            <div className="flex -space-x-3">
+              {electric.map((p) => (
+                <img key={p.id} src={p.image} alt="" className="h-10 w-10 rounded-xl border-2 border-white object-cover shadow-sm" />
+              ))}
+            </div>
+            <span className="text-sm text-slate-500">+{Math.max(0, products.filter((p) => /electric/i.test(p.category)).length - 2)} more</span>
+          </div>
+          <button
+            onClick={() => navigate("/products")}
+            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 transition hover:gap-3"
+          >
+            Browse Electric <span>→</span>
+          </button>
+        </Glass>
+
+        <Glass className="group overflow-hidden p-6 transition hover:shadow-xl">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">Pharma</div>
+              <h3 className="mt-3 text-xl font-semibold text-slate-900">Medicines & wellness</h3>
+              <p className="mt-2 max-w-sm text-sm text-slate-600">Quality-assured medicines, supplements, and topical care from certified manufacturers.</p>
+            </div>
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-cyan-400 to-cyan-600 text-white">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m19 7-9 9" />
+                <circle cx="10.5" cy="15.5" r="2.5" />
+                <circle cx="17.5" cy="8.5" r="2.5" />
+              </svg>
+            </div>
+          </div>
+          <div className="mt-6 flex items-center gap-4">
+            <div className="flex -space-x-3">
+              {pharma.map((p) => (
+                <img key={p.id} src={p.image} alt="" className="h-10 w-10 rounded-xl border-2 border-white object-cover shadow-sm" />
+              ))}
+            </div>
+            <span className="text-sm text-slate-500">+{Math.max(0, products.filter((p) => /pharma/i.test(p.category)).length - 2)} more</span>
+          </div>
+          <button
+            onClick={() => navigate("/products")}
+            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 transition hover:gap-3"
+          >
+            Browse Pharma <span>→</span>
+          </button>
+        </Glass>
+      </div>
+    </section>
+  );
+}
+
+function useSmoothFilter(products: Product[]) {
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<"All" | "Electric" | "Pharma">("All");
+  const [visible, setVisible] = useState<Product[]>(products);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return products.filter((p) => {
+      const matchCat = category === "All" || new RegExp(category, "i").test(p.category);
+      const matchQ = !q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q);
+      return matchCat && matchQ;
+    });
+  }, [products, query, category]);
+
+  useEffect(() => {
+    const itemMap = new Map(visible.map((v) => [v.id, v]));
+    const next = filtered.map((p) => ({ ...p, _enter: !itemMap.has(p.id) as any }));
+    const raf = requestAnimationFrame(() => setVisible(next as Product[]));
+    return () => cancelAnimationFrame(raf);
+  }, [filtered, visible]);
+
+  return { query, setQuery, category, setCategory, visible };
+}
+
+function ProductsPage({
+  allProducts,
+  loading,
+  error,
+  onAddToCart,
+  cartCount,
+}: {
+  allProducts: Product[];
+  loading: boolean;
+  error: string | null;
+  onAddToCart: (product: Product) => void;
+  cartCount: number;
+}) {
+  const { query, setQuery, category, setCategory, visible } = useSmoothFilter(allProducts);
+  const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [location]);
+
+  return (
+    <div className="relative mx-auto max-w-7xl px-4 py-12 md:py-16">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(600px_300px_at_20%_0%,rgba(6,182,212,0.12),transparent),radial-gradient(600px_300px_at_80%_0%,rgba(99,102,241,0.12),transparent)]" />
+      
+      {/* Header */}
+      <div className="mb-10">
+        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">Products</div>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">Browse our catalogue</h1>
+        <p className="mt-3 max-w-2xl text-lg text-slate-600">
+          Filter by category or search by name. All prices and stock are subject to enterprise contracts.
+        </p>
+      </div>
+
+      {/* Controls */}
+      <div className="sticky top-24 z-30 mb-8 rounded-[28px] border border-white/60 bg-white/80 p-4 shadow-xl backdrop-blur-xl">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:w-96">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search products, brand…"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 pl-11 text-sm text-slate-800 shadow-sm backdrop-blur placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60"
+            />
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-3 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full bg-slate-200 text-slate-600 transition hover:bg-slate-300"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill active={category === "All"} onClick={() => setCategory("All")}>All</Pill>
+            <Pill active={category === "Electric"} onClick={() => setCategory("Electric")}>Electric</Pill>
+            <Pill active={category === "Pharma"} onClick={() => setCategory("Pharma")}>Pharma</Pill>
+            <Link
+              to="/cart"
+              className="ml-1 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white"
+            >
+              Cart
+              <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-slate-900 px-1.5 py-0.5 text-xs text-white">
+                {cartCount}
+              </span>
+            </Link>
+          </div>
+        </div>
+        <div className="mt-4 flex items-center justify-between border-t border-slate-200/60 pt-3">
+          <div className="flex items-center gap-3 text-xs text-slate-500">
+            {loading && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 backdrop-blur">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                Loading live catalogue…
+              </span>
+            )}
+            {error && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-800">
+                {error}
+              </span>
+            )}
+          </div>
+          <span className="text-sm font-medium text-slate-700">{visible.length} items</span>
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {visible.map((p) => (
+          <div key={p.id} className="animate-[fadeUp_0.5s_ease_both]" style={{ animationDelay: `${Math.random() * 0.15}s` }}>
+            <Card product={p} onAddToCart={onAddToCart} />
+          </div>
+        ))}
+      </div>
+
+      {visible.length === 0 && !loading && (
+        <div className="py-20 text-center">
+          <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+            <svg className="h-10 w-10 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">No products found</h3>
+          <p className="mt-1 text-slate-600">Try adjusting your search or filter criteria.</p>
+          <button onClick={() => { setQuery(""); setCategory("All"); }} className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:shadow-lg">
+            Clear filters
+          </button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(8px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function Contact() {
+  return (
+    <section id="contact" className="mx-auto max-w-7xl px-4 py-16 md:py-24">
+      <Glass className="relative overflow-hidden p-8 md:p-12">
+        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-gradient-to-br from-emerald-300/40 to-cyan-300/40 blur-3xl" />
+        <div className="grid gap-10 md:grid-cols-2">
+          <div className="space-y-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">Contact</div>
+            <h2 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">Let's build your supply and energy roadmap.</h2>
+            <p className="max-w-prose text-slate-600">
+              Get in touch for quotations, compliance documentation, or site assessments. Our team responds within one business day.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <a href="tel:+910000000000" className="group rounded-2xl border border-slate-200 bg-white/70 p-4 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg">
+                <div className="text-xs uppercase tracking-widest text-slate-500">Phone</div>
+                <div className="mt-1 text-lg font-semibold text-slate-900">+91 00000 00000</div>
+                <div className="mt-2 text-xs text-emerald-700">Tap to call →</div>
+              </a>
+              <a href="mailto:hello@energalife.example" className="group rounded-2xl border border-slate-200 bg-white/70 p-4 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg">
+                <div className="text-xs uppercase tracking-widest text-slate-500">Email</div>
+                <div className="mt-1 text-lg font-semibold text-slate-900">hello@energalife.example</div>
+                <div className="mt-2 text-xs text-emerald-700">Write to us →</div>
+              </a>
+            </div>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.currentTarget as HTMLFormElement;
+              const fd = new FormData(form);
+              const name = fd.get("name");
+              const qty = fd.get("qty");
+              const date = fd.get("date");
+              const msg = `Hi, I'm ${name}. I want an enterprise quote. Quantity: ${qty}. Desired date: ${date}.`;
+              window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
+            }}
+            className="rounded-[28px] border border-white/60 bg-white/60 p-6 backdrop-blur-xl"
+          >
+            <div className="grid gap-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Full name</label>
+                <input name="name" required placeholder="Your name" className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Estimated quantity</label>
+                  <input name="qty" required placeholder="e.g., 50 units" className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Desired date of receiving</label>
+                  <input name="date" type="date" required className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Message</label>
+                <textarea name="msg" rows={4} placeholder="Describe your requirement…" className="w-full rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60" />
+              </div>
+              <button className="group relative mt-2 inline-flex h-12 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5 hover:shadow-xl">
+                <span className="relative z-10">Request quote on WhatsApp</span>
+                <span className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-cyan-500 opacity-0 transition-opacity group-hover:opacity-100" />
+              </button>
+              <p className="text-center text-xs text-slate-500">No payment gateway. Orders are confirmed via WhatsApp and proforma invoice.</p>
+            </div>
+          </form>
+        </div>
+      </Glass>
+    </section>
+  );
+}
+
+function CartPage({
+  items,
+  onUpdateQty,
+  onRemove,
+  onClear,
+}: {
+  items: CartItem[];
+  onUpdateQty: (id: Product["id"], qty: number) => void;
+  onRemove: (id: Product["id"]) => void;
+  onClear: () => void;
+}) {
+  const [date, setDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [name, setName] = useState("");
+
+  const totalItems = useMemo(() => items.reduce((sum, item) => sum + item.qty, 0), [items]);
+
+  const whatsappUrl = useMemo(() => {
+    if (!items.length || !date) return "#";
+    const lines = items.map((item, idx) => `${idx + 1}. ${item.product.name} (${item.product.brand}) - Qty: ${item.qty}`);
+    const message = [
+      `Hello EnergaLife, ${name ? `I am ${name}. ` : ""}I want to place an order:`,
+      "",
+      ...lines,
+      "",
+      `Desired date of order receiving: ${date}`,
+      notes ? `Additional note: ${notes}` : "",
+      "Please confirm availability and quotation.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  }, [items, date, notes, name]);
+
+  return (
+    <section className="relative mx-auto max-w-7xl px-4 py-12 md:py-16">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(600px_300px_at_15%_0%,rgba(6,182,212,0.12),transparent),radial-gradient(600px_300px_at_85%_0%,rgba(16,185,129,0.12),transparent)]" />
+      <div className="mb-10 flex items-end justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">Cart</div>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">Finalize your order request</h1>
+          <p className="mt-3 max-w-2xl text-lg text-slate-600">Review products, set quantity, choose one receiving date, and send the full order to WhatsApp.</p>
+        </div>
+        {!!items.length && (
+          <button
+            onClick={onClear}
+            className="hidden rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-white md:inline-flex"
+          >
+            Clear cart
+          </button>
+        )}
+      </div>
+
+      {items.length === 0 ? (
+        <Glass className="p-10 text-center">
+          <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100 text-slate-500">
+            <svg className="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="9" cy="20" r="1" />
+              <circle cx="18" cy="20" r="1" />
+              <path d="M3 4h2l2 11h11l2-8H7" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-slate-900">Your cart is empty</h2>
+          <p className="mt-2 text-slate-600">Add products from the catalogue to create one combined WhatsApp order.</p>
+          <Link
+            to="/products"
+            className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5"
+          >
+            Browse products
+          </Link>
+        </Glass>
+      ) : (
+        <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
+          <Glass className="overflow-hidden">
+            <div className="border-b border-slate-200/70 px-5 py-4 text-sm font-semibold text-slate-900 md:px-6">Selected products ({totalItems} units)</div>
+            <div className="divide-y divide-slate-200/70">
+              {items.map((item) => (
+                <div key={item.product.id} className="grid gap-4 px-5 py-4 md:grid-cols-[72px_1fr_auto] md:items-center md:px-6">
+                  <img src={item.product.image} alt={item.product.name} className="h-[72px] w-[72px] rounded-2xl object-cover" loading="lazy" />
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-900">{item.product.name}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{item.product.brand} • {item.product.category}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white/80">
+                      <button
+                        onClick={() => onUpdateQty(item.product.id, Math.max(1, item.qty - 1))}
+                        className="grid h-9 w-9 place-items-center text-slate-700 transition hover:bg-slate-100"
+                        aria-label="Decrease quantity"
+                      >
+                        -
+                      </button>
+                      <span className="min-w-8 text-center text-sm font-semibold text-slate-900">{item.qty}</span>
+                      <button
+                        onClick={() => onUpdateQty(item.product.id, item.qty + 1)}
+                        className="grid h-9 w-9 place-items-center text-slate-700 transition hover:bg-slate-100"
+                        aria-label="Increase quantity"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => onRemove(item.product.id)}
+                      className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Glass>
+
+          <Glass className="p-6">
+            <h2 className="text-xl font-semibold text-slate-900">Order details</h2>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Your name</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Company or contact name"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Common receiving date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Additional note</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={4}
+                  placeholder="Optional notes for delivery or invoice"
+                  className="w-full rounded-2xl border border-slate-200 bg-white/80 p-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60"
+                />
+              </div>
+              <a
+                href={date ? whatsappUrl : "#"}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  if (date) onClear();
+                }}
+                className={cx(
+                  "group relative inline-flex h-12 w-full items-center justify-center overflow-hidden rounded-2xl px-6 text-sm font-semibold text-white shadow-lg transition",
+                  date
+                    ? "bg-slate-900 shadow-slate-900/20 hover:-translate-y-0.5 hover:shadow-xl"
+                    : "cursor-not-allowed bg-slate-400/80 shadow-none"
+                )}
+              >
+                <span className="relative z-10">Place complete order on WhatsApp</span>
+                {date && <span className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-cyan-500 opacity-0 transition-opacity group-hover:opacity-100" />}
+              </a>
+              {!date && <p className="text-xs text-amber-700">Select a common receiving date to place your order.</p>}
+            </div>
+          </Glass>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="relative mt-8 border-t border-slate-200/70 bg-white/60 backdrop-blur">
+      <div className="mx-auto max-w-7xl px-4 py-10">
+        <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+          <Logo />
+          <div className="text-sm text-slate-600">© {new Date().getFullYear()} STS Enterprises Pvt Ltd. All rights reserved.</div>
+          <div className="flex items-center gap-3 text-sm">
+            <Link to="/" className="text-slate-600 hover:text-slate-900">Home</Link>
+            <span className="text-slate-300">•</span>
+            <Link to="/products" className="text-slate-600 hover:text-slate-900">Products</Link>
+            <span className="text-slate-300">•</span>
+            <Link to="/cart" className="text-slate-600 hover:text-slate-900">Cart</Link>
+            <span className="text-slate-300">•</span>
+            <Link to="/#contact" className="text-slate-600 hover:text-slate-900">Contact</Link>
+          </div>
+        </div>
+      </div>
+      <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-indigo-600" />
+    </footer>
+  );
+}
+
+function HomePage({ products }: { products: Product[] }) {
+  return (
+    <>
+      <Hero />
+      <About />
+      <CategoryPreview products={products} />
+      <Contact />
+    </>
+  );
+}
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [pathname]);
+  return null;
+}
+
+function AppContent() {
+  const { data: products, loading, error } = useProducts();
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => readCartFromStorage());
+
+  const cartCount = useMemo(() => cartItems.reduce((sum, item) => sum + item.qty, 0), [cartItems]);
+
+  useEffect(() => {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  const addToCart = useCallback((product: Product) => {
+    setCartItems((prev) => {
+      const existing = prev.find((item) => String(item.product.id) === String(product.id));
+      if (existing) {
+        return prev.map((item) =>
+          String(item.product.id) === String(product.id) ? { ...item, qty: item.qty + 1 } : item
+        );
+      }
+      return [...prev, { product, qty: 1 }];
+    });
+  }, []);
+
+  const updateCartQty = useCallback((id: Product["id"], qty: number) => {
+    setCartItems((prev) =>
+      prev.map((item) => (String(item.product.id) === String(id) ? { ...item, qty: Math.max(1, qty) } : item))
+    );
+  }, []);
+
+  const removeFromCart = useCallback((id: Product["id"]) => {
+    setCartItems((prev) => prev.filter((item) => String(item.product.id) !== String(id)));
+  }, []);
+
+  const clearCart = useCallback(() => {
+    setCartItems([]);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.style.scrollBehavior = "smooth";
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap";
+    document.head.appendChild(link);
+    document.body.className = "bg-[#f7f9fc] text-slate-900 antialiased";
+    return () => {
+      document.documentElement.style.scrollBehavior = "";
+    };
+  }, []);
+
+  return (
+    <div className="[font-family:Inter,Plus_Jakarta_Sans,system-ui,-apple-system,Segoe_UI,Roboto,Ubuntu,Cantarell,Noto_Sans,sans-serif]">
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(1200px_600px_at_50%_-10%,rgba(16,185,129,0.12),transparent),radial-gradient(900px_500px_at_90%_10%,rgba(59,130,246,0.10),transparent),radial-gradient(900px_500px_at_10%_10%,rgba(14,165,233,0.10),transparent)]" />
+      <ScrollToTop />
+      <Header cartCount={cartCount} />
+      <main>
+        <Routes>
+          <Route path="/" element={<HomePage products={products} />} />
+          <Route
+            path="/products"
+            element={
+              <ProductsPage
+                allProducts={products}
+                loading={loading}
+                error={error}
+                onAddToCart={addToCart}
+                cartCount={cartCount}
+              />
+            }
+          />
+          <Route
+            path="/cart"
+            element={
+              <CartPage
+                items={cartItems}
+                onUpdateQty={updateCartQty}
+                onRemove={removeFromCart}
+                onClear={clearCart}
+              />
+            }
+          />
+        </Routes>
+      </main>
+      <Footer />
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        className="fixed bottom-5 right-5 z-40 grid h-12 w-12 place-items-center rounded-2xl border border-white/60 bg-white/70 text-slate-800 shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:shadow-xl"
+        aria-label="Back to top"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="m18 15-6-6-6 6" />
+        </svg>
+      </button>
+      <style>{`
+        :root { color-scheme: light; }
+        * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        ::selection { background: rgba(99,102,241,0.2); }
+        img { image-rendering: auto; }
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      `}</style>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+}
