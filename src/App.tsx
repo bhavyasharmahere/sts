@@ -16,7 +16,7 @@ type CartItem = {
 };
 
 /* ─── Constants ─── */
-const WHATSAPP_NUMBER = "91XXXXXXXXXX";
+const WHATSAPP_NUMBER = "919430591173";
 const CART_STORAGE_KEY = "energalife_cart_v1";
 const SHEET_ID = "1hYueHnfOzw8yBpzXQ01qKkclaEus6QLm4OeUntCtnVc";
 const SHEET_TAB = "Enterprise Product Inventory Sheet Generation";
