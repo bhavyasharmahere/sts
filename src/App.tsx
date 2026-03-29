@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react";
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 
+/* ─── Types ─── */
 type Product = {
-  id: string | number;
+  id: string;
   name: string;
-  category: "Electric" | "Pharma" | string;
-  brand: string;
-  image: string;
+  category: string;
   specs: string;
+  availability: boolean;
 };
 
 type CartItem = {
@@ -15,77 +15,25 @@ type CartItem = {
   qty: number;
 };
 
-const WHATSAPP_NUMBER = "919430591173";
+/* ─── Constants ─── */
+const WHATSAPP_NUMBER = "91XXXXXXXXXX";
 const CART_STORAGE_KEY = "energalife_cart_v1";
-const SHEET_ID = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
-const SHEET_ENDPOINT = `https://opensheet.elk.sh/${SHEET_ID}/Sheet1`;
+const SHEET_ID = "1hYueHnfOzw8yBpzXQ01qKkclaEus6QLm4OeUntCtnVc";
+const SHEET_TAB = "Enterprise Product Inventory Sheet Generation";
+const SHEET_ENDPOINT = `https://opensheet.elk.sh/${SHEET_ID}/${encodeURIComponent(SHEET_TAB)}`;
+
 const FALLBACK_PRODUCTS: Product[] = [
-  {
-    id: "EL-1001",
-    name: "NeoVolt 12kW Smart Inverter",
-    category: "Electric",
-    brand: "Voltara",
-    image: "https://images.unsplash.com/photo-1581091012184-7d3bcf97d03b?q=80&w=1600&auto=format&fit=crop",
-    specs: "Pure sine, app control, 98% efficiency, IP54",
-  },
-  {
-    id: "EL-1002",
-    name: "LumenCore LED Panel 600x600",
-    category: "Electric",
-    brand: "LumenCore",
-    image: "https://images.unsplash.com/photo-1558611848-73f7eb4001a1?q=80&w=1600&auto=format&fit=crop",
-    specs: "40W, 4000K, CRI>90, UGR<19, 50k hrs",
-  },
-  {
-    id: "EL-1003",
-    name: "AeroCharge EV Wallbox 22kW",
-    category: "Electric",
-    brand: "AeroCharge",
-    image: "https://images.unsplash.com/photo-1612015973917-8d511a5d4d4b?q=80&w=1600&auto=format&fit=crop",
-    specs: "Type-2, OCPP 1.6J, RFID, dynamic load balancing",
-  },
-  {
-    id: "PH-2001",
-    name: "CardioStat XR 50mg",
-    category: "Pharma",
-    brand: "Axion Labs",
-    image: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=1600&auto=format&fit=crop",
-    specs: "Extended release, 30 tablets, prescription",
-  },
-  {
-    id: "PH-2002",
-    name: "NeuroCalm B-Complex",
-    category: "Pharma",
-    brand: "NovaCare",
-    image: "https://images.unsplash.com/photo-1586232702178-f044c5f4d4b3?q=80&w=1600&auto=format&fit=crop",
-    specs: "High potency, vegan, 60 capsules, GMP",
-  },
-  {
-    id: "PH-2003",
-    name: "DermaHeal Ointment 30g",
-    category: "Pharma",
-    brand: "Skinvance",
-    image: "https://images.unsplash.com/photo-1584309684110-0c168a1e8c5d?q=80&w=1600&auto=format&fit=crop",
-    specs: "Antiseptic, soothing, dermatologist tested",
-  },
-  {
-    id: "EL-1004",
-    name: "GridLink LT Panel 630A",
-    category: "Electric",
-    brand: "Voltara",
-    image: "https://images.unsplash.com/photo-1590650046871-92c16b451959?q=80&w=1600&auto=format&fit=crop",
-    specs: "Form 4b, IP42, copper busbar, modular",
-  },
-  {
-    id: "PH-2004",
-    name: "ImmunoMax C+Zinc",
-    category: "Pharma",
-    brand: "NovaCare",
-    image: "https://images.unsplash.com/photo-1603398748227-30f62ea3c7e2?q=80&w=1600&auto=format&fit=crop",
-    specs: "1000mg Vit-C, 15mg Zinc, 90 tablets",
-  },
+  { id: "T 001", name: "High-Voltage Transformer", category: "Electric", specs: "500kVA, 11kV/433V, Oil-cooled", availability: true },
+  { id: "T 002", name: "Three-Phase Induction Motor", category: "Electric", specs: "50 HP, 460V, 1750 RPM", availability: true },
+  { id: "T 003", name: "Industrial Backup Generator", category: "Electric", specs: "1MW, Diesel-Electric, 60Hz", availability: false },
+  { id: "T 004", name: "Enterprise Rackmount UPS", category: "Electric", specs: "10kVA, Double Conversion, 2U", availability: true },
+  { id: "T 005", name: "Smart Power Distribution Unit", category: "Electric", specs: "30A, 208V, 24 Outlets, Networked", availability: true },
+  { id: "T 006", name: "Heavy-Duty Circuit Breaker", category: "Electric", specs: "1000A, 3-Pole, 600VAC", availability: true },
+  { id: "PH-001", name: "CardioStat XR 50mg", category: "Pharma", specs: "Extended release, 30 tablets, prescription", availability: true },
+  { id: "PH-002", name: "NeuroCalm B-Complex", category: "Pharma", specs: "High potency, vegan, 60 capsules, GMP", availability: false },
 ];
 
+/* ─── Utilities ─── */
 function cx(...cls: Array<string | false | null | undefined>) {
   return cls.filter(Boolean).join(" ");
 }
@@ -103,6 +51,7 @@ function readCartFromStorage(): CartItem[] {
   }
 }
 
+/* ─── Hooks ─── */
 function useScrollProgress() {
   const [p, setP] = useState(0);
   useEffect(() => {
@@ -118,6 +67,52 @@ function useScrollProgress() {
   return p;
 }
 
+function useProducts() {
+  const [data, setData] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function run() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(SHEET_ENDPOINT, { signal: controller.signal, cache: "no-store" });
+        if (!res.ok) throw new Error(`Sheet error ${res.status}`);
+        const rows = (await res.json()) as any[];
+        const mapped: Product[] = rows
+          .map((r) => ({
+            id: r.id ?? r.ID ?? "",
+            name: r.name ?? r.Name ?? "Unnamed product",
+            category: (r.category ?? r.Category ?? "Electric") as string,
+            specs: r.specs ?? r.Specs ?? "",
+            availability: String(r.availability ?? r.Availability ?? "TRUE").toUpperCase() === "TRUE",
+          }))
+          .filter((p) => p.name && p.id);
+        if (!cancelled) setData(mapped.length ? mapped : FALLBACK_PRODUCTS);
+      } catch {
+        if (!cancelled) {
+          setError("Using local demo products");
+          setData(FALLBACK_PRODUCTS);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
+
+  return { data, loading, error };
+}
+
+/* ─── Shared Components ─── */
 const Glass = memo(function Glass({
   className,
   children,
@@ -186,110 +181,33 @@ const Logo = () => (
   </div>
 );
 
-function useProducts() {
-  const [data, setData] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-
-    async function run() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(SHEET_ENDPOINT, { signal: controller.signal, cache: "no-store" });
-        if (!res.ok) throw new Error(`Sheet error ${res.status}`);
-        const rows = (await res.json()) as any[];
-        const mapped: Product[] = rows
-          .map((r, i) => ({
-            id: r.id ?? r.ID ?? i + 1,
-            name: r.name ?? r.Name ?? "Unnamed product",
-            category: (r.category ?? r.Category ?? "Electric") as string,
-            brand: r.brand ?? r.Brand ?? "Generic",
-            image: r.image ?? r.Image ?? "https://images.unsplash.com/photo-1518779578993-ec3579fee39f?q=80&w=1600&auto=format&fit=crop",
-            specs: r.specs ?? r.Specs ?? "",
-          }))
-          .filter((p) => p.name && p.image);
-        if (!cancelled) setData(mapped.length ? mapped : FALLBACK_PRODUCTS);
-      } catch (e) {
-        if (!cancelled) {
-          setError("Using local demo products");
-          setData(FALLBACK_PRODUCTS);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    run();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, []);
-
-  return { data, loading, error };
-}
-
-const LazyImg = ({
-  src,
-  alt,
-  className,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-}) => {
-  const ref = useRef<HTMLImageElement>(null);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    const img = ref.current;
-    if (!img) return;
-    if ("loading" in HTMLImageElement.prototype) {
-      img.loading = "lazy";
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            const el = e.target as HTMLImageElement;
-            if (el.dataset.src) {
-              el.src = el.dataset.src;
-              delete el.dataset.src;
-            }
-            io.disconnect();
-          }
-        });
-      },
-      { rootMargin: "200px" }
-    );
-    io.observe(img);
-    return () => io.disconnect();
-  }, []);
+/* ─── Category icon for cards ─── */
+function CategoryIcon({ category }: { category: string }) {
+  const isElectric = /electric/i.test(category);
   return (
-    <div className="relative overflow-hidden bg-slate-100">
-      <img
-        ref={ref}
-        data-src={src}
-        alt={alt}
-        onLoad={() => setLoaded(true)}
-        className={cx(
-          "h-full w-full object-cover transition-[opacity,transform] duration-700 ease-out",
-          loaded ? "opacity-100 scale-100" : "opacity-0 scale-105",
-          className
-        )}
-      />
-      <div
-        className={cx(
-          "absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-white transition-opacity duration-700",
-          loaded ? "opacity-0" : "opacity-100"
-        )}
-      />
+    <div
+      className={cx(
+        "grid h-11 w-11 shrink-0 place-items-center rounded-2xl",
+        isElectric
+          ? "bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-500/25"
+          : "bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-500/25"
+      )}
+    >
+      {isElectric ? (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+      ) : (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+          <path d="m8.5 8.5 7 7" />
+        </svg>
+      )}
     </div>
   );
-};
+}
 
+/* ─── Product Card ─── */
 const Card = memo(function Card({
   product,
   onAddToCart,
@@ -298,8 +216,10 @@ const Card = memo(function Card({
   onAddToCart: (product: Product) => void;
 }) {
   const [added, setAdded] = useState(false);
+  const available = product.availability;
 
   const handleAdd = () => {
+    if (!available) return;
     onAddToCart(product);
     setAdded(true);
     window.setTimeout(() => setAdded(false), 900);
@@ -308,59 +228,99 @@ const Card = memo(function Card({
   return (
     <div className="group relative">
       <div className="absolute -inset-[1px] rounded-[30px] bg-gradient-to-b from-slate-200 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-      <Glass className="overflow-hidden rounded-[28px]">
-        <div className="relative aspect-[4/3] w-full">
-          <LazyImg src={product.image} alt={product.name} className="h-full w-full" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent" />
-          <div className="absolute left-3 top-3 flex gap-2">
-            <span className="rounded-full border border-white/40 bg-black/40 px-3 py-1 text-xs font-medium text-white backdrop-blur">
-              {product.category}
-            </span>
-            <span className="rounded-full border border-white/40 bg-white/90 px-3 py-1 text-xs font-medium text-slate-800 backdrop-blur">
-              {product.brand}
-            </span>
-          </div>
-        </div>
-        <div className="space-y-3 p-5">
+      <Glass className={cx("overflow-hidden rounded-[28px] transition-all", !available && "opacity-75")}>
+        {/* Top colored strip */}
+        <div
+          className={cx(
+            "h-1.5 w-full",
+            available
+              ? /electric/i.test(product.category)
+                ? "bg-gradient-to-r from-amber-400 to-orange-500"
+                : "bg-gradient-to-r from-emerald-400 to-teal-500"
+              : "bg-gradient-to-r from-slate-300 to-slate-400"
+          )}
+        />
+
+        <div className="space-y-4 p-5">
+          {/* Header row: icon + category + availability */}
           <div className="flex items-start justify-between gap-3">
-            <h3 className="line-clamp-2 text-lg font-semibold tracking-tight text-slate-900">{product.name}</h3>
-            <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]" />
+            <div className="flex items-center gap-3">
+              <CategoryIcon category={product.category} />
+              <div>
+                <span
+                  className={cx(
+                    "inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider",
+                    /electric/i.test(product.category)
+                      ? "bg-amber-50 text-amber-700"
+                      : "bg-emerald-50 text-emerald-700"
+                  )}
+                >
+                  {product.category}
+                </span>
+                <div className="mt-0.5 font-mono text-[11px] text-slate-400">{product.id}</div>
+              </div>
+            </div>
+            {/* Availability badge */}
+            <div className="flex items-center gap-1.5">
+              <span
+                className={cx(
+                  "h-2 w-2 rounded-full",
+                  available
+                    ? "bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]"
+                    : "bg-red-400 shadow-[0_0_0_3px_rgba(239,68,68,0.12)]"
+                )}
+              />
+              <span className={cx("text-[11px] font-medium", available ? "text-emerald-700" : "text-red-500")}>
+                {available ? "In Stock" : "Not Available"}
+              </span>
+            </div>
           </div>
-          <p className="line-clamp-2 text-sm leading-relaxed text-slate-600">{product.specs}</p>
-          <div className="flex items-center justify-between pt-2">
+
+          {/* Product name */}
+          <h3 className="line-clamp-2 text-lg font-semibold leading-snug tracking-tight text-slate-900">
+            {product.name}
+          </h3>
+
+          {/* Specs */}
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Specifications</div>
+            <p className="text-sm leading-relaxed text-slate-600">{product.specs}</p>
+          </div>
+
+          {/* Add to cart */}
+          <div className="flex items-center justify-between pt-1">
             <button
               onClick={handleAdd}
+              disabled={!available}
               className={cx(
-                "group/btn relative inline-flex items-center gap-2 overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold text-white transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0",
-                added ? "bg-emerald-600 hover:shadow-emerald-600/20" : "bg-slate-900 hover:shadow-slate-900/20"
+                "group/btn relative inline-flex items-center gap-2 overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold transition-[transform,box-shadow,background-color]",
+                !available
+                  ? "cursor-not-allowed bg-slate-200 text-slate-400"
+                  : added
+                  ? "bg-emerald-600 text-white hover:shadow-emerald-600/20"
+                  : "bg-slate-900 text-white hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-900/20 active:translate-y-0"
               )}
             >
-              <span className="relative z-10">{added ? "Added" : "Add to cart"}</span>
-              <svg
-                className="relative z-10 h-4 w-4 transition-transform group-hover/btn:translate-x-0.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                {added ? (
-                  <path d="m20 6-11 11-5-5" />
-                ) : (
-                  <>
-                    <circle cx="9" cy="20" r="1" />
-                    <circle cx="18" cy="20" r="1" />
-                    <path d="M3 4h2l2 11h11l2-8H7" />
-                  </>
-                )}
-              </svg>
-              <span className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-cyan-500 opacity-0 transition-opacity group-hover/btn:opacity-100" />
+              <span className="relative z-10">{!available ? "Unavailable" : added ? "Added ✓" : "Add to cart"}</span>
+              {available && !added && (
+                <svg
+                  className="relative z-10 h-4 w-4 transition-transform group-hover/btn:translate-x-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="9" cy="20" r="1" />
+                  <circle cx="18" cy="20" r="1" />
+                  <path d="M3 4h2l2 11h11l2-8H7" />
+                </svg>
+              )}
+              {available && !added && (
+                <span className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-cyan-500 opacity-0 transition-opacity group-hover/btn:opacity-100" />
+              )}
             </button>
-            <div className="text-right text-xs text-slate-500">
-              <div>SKU</div>
-              <div className="font-mono text-slate-700">{String(product.id)}</div>
-            </div>
           </div>
         </div>
       </Glass>
@@ -368,11 +328,13 @@ const Card = memo(function Card({
   );
 });
 
+/* ─── Header ─── */
 function Header({ cartCount }: { cartCount: number }) {
   const [open, setOpen] = useState(false);
   const progress = useScrollProgress();
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -380,6 +342,10 @@ function Header({ cartCount }: { cartCount: number }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -389,8 +355,26 @@ function Header({ cartCount }: { cartCount: number }) {
       isActive(path) ? "text-slate-900 bg-slate-100" : "text-slate-600 hover:text-slate-900"
     );
 
+  /* Scroll to section on homepage, or navigate then scroll */
+  const handleSectionClick = (sectionId: string) => {
+    if (location.pathname === "/") {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    } else {
+      navigate("/");
+      setTimeout(() => {
+        const el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+    setOpen(false);
+  };
+
   return (
     <header className="sticky top-0 z-50">
+      {/* Scroll progress bar */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px">
         <div
           className="h-px w-full origin-left bg-gradient-to-r from-emerald-500 via-cyan-500 to-indigo-600"
@@ -407,54 +391,76 @@ function Header({ cartCount }: { cartCount: number }) {
           <Link to="/" className="text-left">
             <Logo />
           </Link>
+
+          {/* Desktop nav */}
           <nav className="hidden items-center gap-1 md:flex">
             <Link to="/" className={linkCls("/")}>Home</Link>
             <Link to="/products" className={linkCls("/products")}>Products</Link>
-            <Link to="/cart" className={linkCls("/cart")}>Cart</Link>
-            <Link to="/#about" className={linkCls("/#about")}>About</Link>
-            <Link to="/#contact" className={linkCls("/#contact")}>Contact</Link>
+            <button onClick={() => handleSectionClick("about")} className="relative rounded-full px-4 py-2 text-sm font-medium text-slate-600 transition hover:text-slate-900">About</button>
+            <button onClick={() => handleSectionClick("contact")} className="relative rounded-full px-4 py-2 text-sm font-medium text-slate-600 transition hover:text-slate-900">Contact</button>
             <Link
               to="/cart"
               className="ml-2 inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5 hover:shadow-xl"
             >
-              <span>Cart ({cartCount})</span>
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M5 12h14" />
-                <path d="m12 5 7 7-7 7" />
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="20" r="1" />
+                <circle cx="18" cy="20" r="1" />
+                <path d="M3 4h2l2 11h11l2-8H7" />
               </svg>
+              <span>Cart ({cartCount})</span>
             </Link>
           </nav>
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white/80 backdrop-blur transition hover:bg-white md:hidden"
-            aria-label="Menu"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              className={cx("transition-transform", open && "rotate-90")}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+
+          {/* Mobile: cart button + hamburger */}
+          <div className="flex items-center gap-2 md:hidden">
+            <Link
+              to="/cart"
+              className="relative grid h-10 w-10 place-items-center rounded-2xl bg-slate-900 text-white shadow-md transition hover:shadow-lg"
             >
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="20" r="1" />
+                <circle cx="18" cy="20" r="1" />
+                <path d="M3 4h2l2 11h11l2-8H7" />
+              </svg>
+              {cartCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-cyan-500 text-[10px] font-bold text-white shadow">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white/80 backdrop-blur transition hover:bg-white"
+              aria-label="Menu"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                className={cx("transition-transform", open && "rotate-90")}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                {open ? <path d="M18 6 6 18M6 6l12 12" /> : <path d="M4 6h16M4 12h16M4 18h16" />}
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {/* Mobile menu dropdown */}
         <div
           className={cx(
-            "grid overflow-hidden rounded-3xl border border-white/60 bg-white/80 backdrop-blur-xl shadow-xl transition-[grid-template-rows,opacity] md:hidden",
+            "grid overflow-hidden rounded-3xl border border-white/60 bg-white/80 shadow-xl backdrop-blur-xl transition-[grid-template-rows,opacity] md:hidden",
             open ? "mt-2 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
           )}
         >
           <div className="min-h-0">
             <div className="p-2">
-              <Link to="/" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Home</Link>
-              <Link to="/products" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Products</Link>
-              <Link to="/cart" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Cart ({cartCount})</Link>
-              <Link to="/#about" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">About</Link>
-              <Link to="/#contact" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Contact</Link>
+              <Link to="/" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Home</Link>
+              <Link to="/products" onClick={() => setOpen(false)} className="block rounded-full px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Products</Link>
+              <button onClick={() => handleSectionClick("about")} className="block w-full rounded-full px-4 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">About</button>
+              <button onClick={() => handleSectionClick("contact")} className="block w-full rounded-full px-4 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Contact</button>
             </div>
           </div>
         </div>
@@ -463,6 +469,7 @@ function Header({ cartCount }: { cartCount: number }) {
   );
 }
 
+/* ─── Hero Section ─── */
 function Hero() {
   const slides = [
     {
@@ -530,9 +537,15 @@ function Hero() {
                 </svg>
                 <span className="absolute inset-0 bg-gradient-to-r from-emerald-300/60 to-cyan-300/60 opacity-0 transition-opacity group-hover:opacity-100" />
               </button>
-              <Link to="/#about" className="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15">
+              <button
+                onClick={() => {
+                  const el = document.getElementById("about");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
+              >
                 Learn more
-              </Link>
+              </button>
             </div>
             <div className="mt-6 flex items-center gap-3">
               {slides.map((_, i) => (
@@ -580,9 +593,10 @@ function Hero() {
   );
 }
 
+/* ─── About Section ─── */
 function About() {
   return (
-    <section id="about" className="mx-auto max-w-7xl px-4 py-16 md:py-24">
+    <section id="about" className="mx-auto max-w-7xl scroll-mt-32 px-4 py-16 md:py-24">
       <div className="grid items-start gap-8 md:grid-cols-2">
         <div className="space-y-5">
           <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">About EnergaLife</div>
@@ -610,10 +624,10 @@ function About() {
           <div className="absolute -inset-6 -z-10 rounded-[40px] bg-gradient-to-br from-emerald-100 via-cyan-100 to-indigo-100 opacity-60 blur-2xl" />
           <Glass className="overflow-hidden">
             <div className="grid grid-cols-2 gap-[1px] bg-slate-200/60">
-              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?q=80&w=1600&auto=format&fit=crop" alt="" />
-              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1582719478427-2f3f8a1c6d3e?q=80&w=1600&auto=format&fit=crop" alt="" />
-              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1583511655826-05700d52f4d9?q=80&w=1600&auto=format&fit=crop" alt="" />
-              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=1600&auto=format&fit=crop" alt="" />
+              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?q=80&w=800&auto=format&fit=crop" alt="Facility" loading="lazy" />
+              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1582719478427-2f3f8a1c6d3e?q=80&w=800&auto=format&fit=crop" alt="Electric" loading="lazy" />
+              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1583511655826-05700d52f4d9?q=80&w=800&auto=format&fit=crop" alt="Pharma" loading="lazy" />
+              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800&auto=format&fit=crop" alt="Care" loading="lazy" />
             </div>
           </Glass>
         </div>
@@ -622,10 +636,11 @@ function About() {
   );
 }
 
+/* ─── Category Preview ─── */
 function CategoryPreview({ products }: { products: Product[] }) {
   const navigate = useNavigate();
-  const electric = products.filter((p) => /electric/i.test(p.category)).slice(0, 2);
-  const pharma = products.filter((p) => /pharma/i.test(p.category)).slice(0, 2);
+  const electricCount = products.filter((p) => /electric/i.test(p.category)).length;
+  const pharmaCount = products.filter((p) => /pharma/i.test(p.category)).length;
 
   return (
     <section className="mx-auto max-w-7xl px-4 pb-16">
@@ -637,29 +652,25 @@ function CategoryPreview({ products }: { products: Product[] }) {
         <Glass className="group overflow-hidden p-6 transition hover:shadow-xl">
           <div className="flex items-start justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Electric</div>
-              <h3 className="mt-3 text-xl font-semibold text-slate-900">Power systems & lighting</h3>
-              <p className="mt-2 max-w-sm text-sm text-slate-600">Panels, inverters, EV charging, and LED systems for commercial and industrial facilities.</p>
+              <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">Electric</div>
+              <h3 className="mt-3 text-xl font-semibold text-slate-900">Power systems & equipment</h3>
+              <p className="mt-2 max-w-sm text-sm text-slate-600">Transformers, motors, UPS, circuit breakers, inverters, and EV charging stations for commercial and industrial facilities.</p>
             </div>
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M13 2 4.09 12.11a2 2 0 0 0 .17 2.72l.66.67a2 2 0 0 0 2.72.17L18 7" />
-                <path d="m15 10 3.29-3.3a1 1 0 0 1 1.42 0l.58.59a1 1 0 0 1 0 1.41l-3.29 3.3" />
-                <path d="m10 15-2.5 5.5" />
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/25">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
             </div>
           </div>
-          <div className="mt-6 flex items-center gap-4">
-            <div className="flex -space-x-3">
-              {electric.map((p) => (
-                <img key={p.id} src={p.image} alt="" className="h-10 w-10 rounded-xl border-2 border-white object-cover shadow-sm" />
-              ))}
-            </div>
-            <span className="text-sm text-slate-500">+{Math.max(0, products.filter((p) => /electric/i.test(p.category)).length - 2)} more</span>
+          <div className="mt-6 flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm font-medium text-slate-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              {electricCount} products
+            </span>
           </div>
           <button
             onClick={() => navigate("/products")}
-            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 transition hover:gap-3"
+            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-amber-700 transition hover:gap-3"
           >
             Browse Electric <span>→</span>
           </button>
@@ -668,29 +679,26 @@ function CategoryPreview({ products }: { products: Product[] }) {
         <Glass className="group overflow-hidden p-6 transition hover:shadow-xl">
           <div className="flex items-start justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">Pharma</div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Pharma</div>
               <h3 className="mt-3 text-xl font-semibold text-slate-900">Medicines & wellness</h3>
               <p className="mt-2 max-w-sm text-sm text-slate-600">Quality-assured medicines, supplements, and topical care from certified manufacturers.</p>
             </div>
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-cyan-400 to-cyan-600 text-white">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="m19 7-9 9" />
-                <circle cx="10.5" cy="15.5" r="2.5" />
-                <circle cx="17.5" cy="8.5" r="2.5" />
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-500/25">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+                <path d="m8.5 8.5 7 7" />
               </svg>
             </div>
           </div>
-          <div className="mt-6 flex items-center gap-4">
-            <div className="flex -space-x-3">
-              {pharma.map((p) => (
-                <img key={p.id} src={p.image} alt="" className="h-10 w-10 rounded-xl border-2 border-white object-cover shadow-sm" />
-              ))}
-            </div>
-            <span className="text-sm text-slate-500">+{Math.max(0, products.filter((p) => /pharma/i.test(p.category)).length - 2)} more</span>
+          <div className="mt-6 flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm font-medium text-slate-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              {pharmaCount} products
+            </span>
           </div>
           <button
             onClick={() => navigate("/products")}
-            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 transition hover:gap-3"
+            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 transition hover:gap-3"
           >
             Browse Pharma <span>→</span>
           </button>
@@ -700,159 +708,10 @@ function CategoryPreview({ products }: { products: Product[] }) {
   );
 }
 
-function useSmoothFilter(products: Product[]) {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<"All" | "Electric" | "Pharma">("All");
-  const [visible, setVisible] = useState<Product[]>(products);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return products.filter((p) => {
-      const matchCat = category === "All" || new RegExp(category, "i").test(p.category);
-      const matchQ = !q || p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q);
-      return matchCat && matchQ;
-    });
-  }, [products, query, category]);
-
-  useEffect(() => {
-    const itemMap = new Map(visible.map((v) => [v.id, v]));
-    const next = filtered.map((p) => ({ ...p, _enter: !itemMap.has(p.id) as any }));
-    const raf = requestAnimationFrame(() => setVisible(next as Product[]));
-    return () => cancelAnimationFrame(raf);
-  }, [filtered, visible]);
-
-  return { query, setQuery, category, setCategory, visible };
-}
-
-function ProductsPage({
-  allProducts,
-  loading,
-  error,
-  onAddToCart,
-  cartCount,
-}: {
-  allProducts: Product[];
-  loading: boolean;
-  error: string | null;
-  onAddToCart: (product: Product) => void;
-  cartCount: number;
-}) {
-  const { query, setQuery, category, setCategory, visible } = useSmoothFilter(allProducts);
-  const location = useLocation();
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [location]);
-
-  return (
-    <div className="relative mx-auto max-w-7xl px-4 py-12 md:py-16">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(600px_300px_at_20%_0%,rgba(6,182,212,0.12),transparent),radial-gradient(600px_300px_at_80%_0%,rgba(99,102,241,0.12),transparent)]" />
-      
-      {/* Header */}
-      <div className="mb-10">
-        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">Products</div>
-        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">Browse our catalogue</h1>
-        <p className="mt-3 max-w-2xl text-lg text-slate-600">
-          Filter by category or search by name. All prices and stock are subject to enterprise contracts.
-        </p>
-      </div>
-
-      {/* Controls */}
-      <div className="sticky top-24 z-30 mb-8 rounded-[28px] border border-white/60 bg-white/80 p-4 shadow-xl backdrop-blur-xl">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="relative w-full md:w-96">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search products, brand…"
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 pl-11 text-sm text-slate-800 shadow-sm backdrop-blur placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60"
-            />
-            <svg className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                className="absolute right-3 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full bg-slate-200 text-slate-600 transition hover:bg-slate-300"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Pill active={category === "All"} onClick={() => setCategory("All")}>All</Pill>
-            <Pill active={category === "Electric"} onClick={() => setCategory("Electric")}>Electric</Pill>
-            <Pill active={category === "Pharma"} onClick={() => setCategory("Pharma")}>Pharma</Pill>
-            <Link
-              to="/cart"
-              className="ml-1 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white"
-            >
-              Cart
-              <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-slate-900 px-1.5 py-0.5 text-xs text-white">
-                {cartCount}
-              </span>
-            </Link>
-          </div>
-        </div>
-        <div className="mt-4 flex items-center justify-between border-t border-slate-200/60 pt-3">
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            {loading && (
-              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 backdrop-blur">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-                Loading live catalogue…
-              </span>
-            )}
-            {error && (
-              <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-800">
-                {error}
-              </span>
-            )}
-          </div>
-          <span className="text-sm font-medium text-slate-700">{visible.length} items</span>
-        </div>
-      </div>
-
-      {/* Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {visible.map((p) => (
-          <div key={p.id} className="animate-[fadeUp_0.5s_ease_both]" style={{ animationDelay: `${Math.random() * 0.15}s` }}>
-            <Card product={p} onAddToCart={onAddToCart} />
-          </div>
-        ))}
-      </div>
-
-      {visible.length === 0 && !loading && (
-        <div className="py-20 text-center">
-          <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
-            <svg className="h-10 w-10 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.3-4.3" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900">No products found</h3>
-          <p className="mt-1 text-slate-600">Try adjusting your search or filter criteria.</p>
-          <button onClick={() => { setQuery(""); setCategory("All"); }} className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:shadow-lg">
-            Clear filters
-          </button>
-        </div>
-      )}
-
-      <style>{`
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(8px) scale(0.98); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
+/* ─── Contact Section ─── */
 function Contact() {
   return (
-    <section id="contact" className="mx-auto max-w-7xl px-4 py-16 md:py-24">
+    <section id="contact" className="mx-auto max-w-7xl scroll-mt-32 px-4 py-16 md:py-24">
       <Glass className="relative overflow-hidden p-8 md:p-12">
         <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-gradient-to-br from-emerald-300/40 to-cyan-300/40 blur-3xl" />
         <div className="grid gap-10 md:grid-cols-2">
@@ -878,8 +737,7 @@ function Contact() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              const form = e.currentTarget as HTMLFormElement;
-              const fd = new FormData(form);
+              const fd = new FormData(e.currentTarget);
               const name = fd.get("name");
               const qty = fd.get("qty");
               const date = fd.get("date");
@@ -920,6 +778,179 @@ function Contact() {
   );
 }
 
+/* ─── Products Page ─── */
+function useSmoothFilter(products: Product[]) {
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<"All" | "Electric" | "Pharma">("All");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return products.filter((p) => {
+      const matchCat = category === "All" || new RegExp(category, "i").test(p.category);
+      const matchQ = !q || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) || p.specs.toLowerCase().includes(q);
+      return matchCat && matchQ;
+    });
+  }, [products, query, category]);
+
+  return { query, setQuery, category, setCategory, filtered };
+}
+
+function ProductsPage({
+  allProducts,
+  loading,
+  error,
+  onAddToCart,
+  cartCount,
+}: {
+  allProducts: Product[];
+  loading: boolean;
+  error: string | null;
+  onAddToCart: (product: Product) => void;
+  cartCount: number;
+}) {
+  const { query, setQuery, category, setCategory, filtered } = useSmoothFilter(allProducts);
+  const [searchVisible, setSearchVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  /* Hide search bar on scroll down, show on scroll up */
+  useEffect(() => {
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY > 300) {
+        if (currentY > lastScrollY.current + 5) {
+          setSearchVisible(false);
+        } else if (currentY < lastScrollY.current - 5) {
+          setSearchVisible(true);
+        }
+      } else {
+        setSearchVisible(true);
+      }
+      lastScrollY.current = currentY;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div className="relative mx-auto max-w-7xl px-4 py-12 md:py-16">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(600px_300px_at_20%_0%,rgba(6,182,212,0.12),transparent),radial-gradient(600px_300px_at_80%_0%,rgba(99,102,241,0.12),transparent)]" />
+
+      {/* Header */}
+      <div className="mb-10">
+        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">Products</div>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">Browse our catalogue</h1>
+        <p className="mt-3 max-w-2xl text-lg text-slate-600">
+          Filter by category or search by name. All prices and stock are subject to enterprise contracts.
+        </p>
+      </div>
+
+      {/* Sticky Controls */}
+      <div
+        className={cx(
+          "sticky top-24 z-30 mb-8 rounded-[28px] border border-white/60 bg-white/80 shadow-xl backdrop-blur-xl transition-all duration-500",
+          searchVisible ? "p-4" : "p-4"
+        )}
+      >
+        {/* Search bar - hides on scroll */}
+        <div
+          className={cx(
+            "overflow-hidden transition-all duration-500 ease-in-out",
+            searchVisible ? "max-h-20 opacity-100 mb-4" : "max-h-0 opacity-0 mb-0"
+          )}
+        >
+          <div className="relative w-full">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, ID, or specs…"
+              className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 pl-11 text-sm text-slate-800 shadow-sm backdrop-blur placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60"
+            />
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-3 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full bg-slate-200 text-slate-600 transition hover:bg-slate-300"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Category pills + cart + count */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill active={category === "All"} onClick={() => setCategory("All")}>All</Pill>
+            <Pill active={category === "Electric"} onClick={() => setCategory("Electric")}>⚡ Electric</Pill>
+            <Pill active={category === "Pharma"} onClick={() => setCategory("Pharma")}>💊 Pharma</Pill>
+          </div>
+          <div className="flex items-center gap-3">
+            {loading && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs text-slate-500 backdrop-blur">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                Loading…
+              </span>
+            )}
+            {error && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-800">
+                {error}
+              </span>
+            )}
+            <span className="text-sm font-medium text-slate-700">{filtered.length} items</span>
+            <Link
+              to="/cart"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white"
+            >
+              Cart
+              <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-slate-900 px-1.5 py-0.5 text-xs text-white">
+                {cartCount}
+              </span>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {filtered.map((p, i) => (
+          <div key={p.id} className="animate-[fadeUp_0.5s_ease_both]" style={{ animationDelay: `${Math.min(i * 0.04, 0.4)}s` }}>
+            <Card product={p} onAddToCart={onAddToCart} />
+          </div>
+        ))}
+      </div>
+
+      {filtered.length === 0 && !loading && (
+        <div className="py-20 text-center">
+          <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-slate-100">
+            <svg className="h-10 w-10 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">No products found</h3>
+          <p className="mt-1 text-slate-600">Try adjusting your search or filter criteria.</p>
+          <button onClick={() => { setQuery(""); setCategory("All"); }} className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:shadow-lg">
+            Clear filters
+          </button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(8px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/* ─── Cart Page ─── */
 function CartPage({
   items,
   onUpdateQty,
@@ -927,8 +958,8 @@ function CartPage({
   onClear,
 }: {
   items: CartItem[];
-  onUpdateQty: (id: Product["id"], qty: number) => void;
-  onRemove: (id: Product["id"]) => void;
+  onUpdateQty: (id: string, qty: number) => void;
+  onRemove: (id: string) => void;
   onClear: () => void;
 }) {
   const [date, setDate] = useState("");
@@ -939,7 +970,7 @@ function CartPage({
 
   const whatsappUrl = useMemo(() => {
     if (!items.length || !date) return "#";
-    const lines = items.map((item, idx) => `${idx + 1}. ${item.product.name} (${item.product.brand}) - Qty: ${item.qty}`);
+    const lines = items.map((item, idx) => `${idx + 1}. ${item.product.name} (${item.product.id}) - Qty: ${item.qty}`);
     const message = [
       `Hello EnergaLife, ${name ? `I am ${name}. ` : ""}I want to place an order:`,
       "",
@@ -997,11 +1028,12 @@ function CartPage({
             <div className="border-b border-slate-200/70 px-5 py-4 text-sm font-semibold text-slate-900 md:px-6">Selected products ({totalItems} units)</div>
             <div className="divide-y divide-slate-200/70">
               {items.map((item) => (
-                <div key={item.product.id} className="grid gap-4 px-5 py-4 md:grid-cols-[72px_1fr_auto] md:items-center md:px-6">
-                  <img src={item.product.image} alt={item.product.name} className="h-[72px] w-[72px] rounded-2xl object-cover" loading="lazy" />
+                <div key={item.product.id} className="grid gap-4 px-5 py-4 md:grid-cols-[auto_1fr_auto] md:items-center md:px-6">
+                  <CategoryIcon category={item.product.category} />
                   <div>
                     <h3 className="text-base font-semibold text-slate-900">{item.product.name}</h3>
-                    <p className="mt-1 text-sm text-slate-600">{item.product.brand} • {item.product.category}</p>
+                    <p className="mt-0.5 text-sm text-slate-500">{item.product.id} • {item.product.category}</p>
+                    <p className="mt-0.5 text-xs text-slate-400">{item.product.specs}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white/80">
@@ -1010,7 +1042,7 @@ function CartPage({
                         className="grid h-9 w-9 place-items-center text-slate-700 transition hover:bg-slate-100"
                         aria-label="Decrease quantity"
                       >
-                        -
+                        −
                       </button>
                       <span className="min-w-8 text-center text-sm font-semibold text-slate-900">{item.qty}</span>
                       <button
@@ -1091,13 +1123,98 @@ function CartPage({
   );
 }
 
+/* ─── Developer Page ─── */
+function DevPage() {
+  return (
+    <section className="relative mx-auto max-w-7xl px-4 py-16 md:py-24">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(600px_300px_at_50%_0%,rgba(99,102,241,0.12),transparent)]" />
+
+      <div className="mx-auto max-w-2xl text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-1 text-xs font-semibold text-indigo-700">
+          Developer
+        </div>
+        <h1 className="mt-6 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
+          Built with passion &amp; precision
+        </h1>
+        <p className="mt-4 text-lg text-slate-600">
+          This enterprise website was designed and developed with modern web technologies to deliver a premium, fast, and accessible experience.
+        </p>
+      </div>
+
+      <div className="mx-auto mt-12 grid max-w-3xl gap-6 md:grid-cols-2">
+        <Glass className="p-6">
+          <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">Tech Stack</h3>
+          <ul className="mt-3 space-y-2 text-sm text-slate-600">
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> React 18 + TypeScript</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-cyan-500" /> Tailwind CSS</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Vite Build System</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> React Router DOM</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-purple-500" /> Google Sheets API (opensheet)</li>
+          </ul>
+        </Glass>
+
+        <Glass className="p-6">
+          <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">Features</h3>
+          <ul className="mt-3 space-y-2 text-sm text-slate-600">
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> Glassmorphism UI</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-cyan-500" /> Smooth animations</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Mobile-first responsive</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> WhatsApp order integration</li>
+            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-purple-500" /> Live Google Sheet data</li>
+          </ul>
+        </Glass>
+
+        <Glass className="p-6 md:col-span-2">
+          <div className="flex items-center gap-4">
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-lg shadow-slate-900/25">
+              <span className="text-lg font-bold">&lt;/&gt;</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">About the Developer</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Passionate full-stack developer crafting modern, performant, and beautiful web experiences. 
+                Specializing in React ecosystems with a strong focus on UX and clean code architecture.
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2">
+            {["React", "TypeScript", "Tailwind", "Node.js", "Next.js", "Python", "UI/UX"].map((skill) => (
+              <span key={skill} className="rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">
+                {skill}
+              </span>
+            ))}
+          </div>
+        </Glass>
+      </div>
+
+      <div className="mt-12 text-center">
+        <p className="text-sm text-slate-500">
+          © {new Date().getFullYear()} EnergaLife • Crafted with care and modern web technologies
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Footer ─── */
 function Footer() {
   return (
     <footer className="relative mt-8 border-t border-slate-200/70 bg-white/60 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 py-10">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <Logo />
-          <div className="text-sm text-slate-600">© {new Date().getFullYear()} STS Enterprises Pvt Ltd. All rights reserved.</div>
+          <div className="text-sm text-slate-600">© {new Date().getFullYear()} EnergaLife Enterprises Pvt Ltd. All rights reserved.</div>
           <div className="flex items-center gap-3 text-sm">
             <Link to="/" className="text-slate-600 hover:text-slate-900">Home</Link>
             <span className="text-slate-300">•</span>
@@ -1105,7 +1222,9 @@ function Footer() {
             <span className="text-slate-300">•</span>
             <Link to="/cart" className="text-slate-600 hover:text-slate-900">Cart</Link>
             <span className="text-slate-300">•</span>
-            <Link to="/#contact" className="text-slate-600 hover:text-slate-900">Contact</Link>
+            <Link to="/dev" className="inline-flex items-center gap-1.5 text-slate-600 transition hover:text-indigo-600">
+              Developer <span className="font-mono text-xs">&lt;/&gt;</span>
+            </Link>
           </div>
         </div>
       </div>
@@ -1114,7 +1233,21 @@ function Footer() {
   );
 }
 
+/* ─── Home Page ─── */
 function HomePage({ products }: { products: Product[] }) {
+  const location = useLocation();
+
+  /* Handle hash-based scroll on mount (e.g. navigating from another page) */
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.replace("#", "");
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 200);
+    }
+  }, [location.hash]);
+
   return (
     <>
       <Hero />
@@ -1125,6 +1258,7 @@ function HomePage({ products }: { products: Product[] }) {
   );
 }
 
+/* ─── Scroll to Top ─── */
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -1133,6 +1267,7 @@ function ScrollToTop() {
   return null;
 }
 
+/* ─── App Content ─── */
 function AppContent() {
   const { data: products, loading, error } = useProducts();
   const [cartItems, setCartItems] = useState<CartItem[]>(() => readCartFromStorage());
@@ -1144,25 +1279,26 @@ function AppContent() {
   }, [cartItems]);
 
   const addToCart = useCallback((product: Product) => {
+    if (!product.availability) return;
     setCartItems((prev) => {
-      const existing = prev.find((item) => String(item.product.id) === String(product.id));
+      const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
         return prev.map((item) =>
-          String(item.product.id) === String(product.id) ? { ...item, qty: item.qty + 1 } : item
+          item.product.id === product.id ? { ...item, qty: item.qty + 1 } : item
         );
       }
       return [...prev, { product, qty: 1 }];
     });
   }, []);
 
-  const updateCartQty = useCallback((id: Product["id"], qty: number) => {
+  const updateCartQty = useCallback((id: string, qty: number) => {
     setCartItems((prev) =>
-      prev.map((item) => (String(item.product.id) === String(id) ? { ...item, qty: Math.max(1, qty) } : item))
+      prev.map((item) => (item.product.id === id ? { ...item, qty: Math.max(1, qty) } : item))
     );
   }, []);
 
-  const removeFromCart = useCallback((id: Product["id"]) => {
-    setCartItems((prev) => prev.filter((item) => String(item.product.id) !== String(id)));
+  const removeFromCart = useCallback((id: string) => {
+    setCartItems((prev) => prev.filter((item) => item.product.id !== id));
   }, []);
 
   const clearCart = useCallback(() => {
@@ -1212,6 +1348,7 @@ function AppContent() {
               />
             }
           />
+          <Route path="/dev" element={<DevPage />} />
         </Routes>
       </main>
       <Footer />
@@ -1235,6 +1372,7 @@ function AppContent() {
   );
 }
 
+/* ─── Root App ─── */
 export default function App() {
   return (
     <BrowserRouter>
