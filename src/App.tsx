@@ -1126,83 +1126,50 @@ function CartPage({
 /* ─── Developer Page ─── */
 function DevPage() {
   return (
-    <section className="relative mx-auto max-w-7xl px-4 py-16 md:py-24">
+    <section className="relative mx-auto max-w-7xl px-4 py-12 md:py-16">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(600px_300px_at_50%_0%,rgba(99,102,241,0.12),transparent)]" />
-
-      <div className="mx-auto max-w-2xl text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-1 text-xs font-semibold text-indigo-700">
-          Developer
+      <Glass className="p-8 md:p-12">
+        <div className="mx-auto max-w-2xl text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">Developer</div>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
+            Developer <span className="font-mono text-cyan-600">&lt;/&gt;</span>
+          </h1>
+          <p className="mt-4 text-lg text-slate-600">
+            Built with modern web technologies for a premium enterprise experience.
+          </p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-5 backdrop-blur">
+              <div className="text-sm font-semibold text-slate-900">Frontend</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {["React", "TypeScript", "React Router", "TailwindCSS"].map((tech) => (
+                  <span key={tech} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                    {tech}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-5 backdrop-blur">
+              <div className="text-sm font-semibold text-slate-900">Features</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {["Glassmorphism", "Animations", "Lazy Loading", "Responsive"].map((feat) => (
+                  <span key={feat} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                    {feat}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 rounded-2xl border border-slate-200 bg-gradient-to-r from-emerald-50 to-cyan-50 p-6">
+            <div className="text-sm font-semibold text-slate-900">Data Source</div>
+            <p className="mt-2 text-sm text-slate-600">
+              Products are dynamically fetched from Google Sheets using the OpenSheet API.
+            </p>
+            <code className="mt-3 block rounded-xl bg-slate-900/90 px-4 py-3 text-xs text-emerald-400">
+              https://opensheet.elk.sh/1hYueHnfOzw8yBpzXQ01qKkclaEus6QLm4OeUntCtnVc/Table1
+            </code>
+          </div>
         </div>
-        <h1 className="mt-6 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
-          Built with passion &amp; precision
-        </h1>
-        <p className="mt-4 text-lg text-slate-600">
-          This enterprise website was designed and developed with modern web technologies to deliver a premium, fast, and accessible experience.
-        </p>
-      </div>
-
-      <div className="mx-auto mt-12 grid max-w-3xl gap-6 md:grid-cols-2">
-        <Glass className="p-6">
-          <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900">Tech Stack</h3>
-          <ul className="mt-3 space-y-2 text-sm text-slate-600">
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> React 18 + TypeScript</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-cyan-500" /> Tailwind CSS</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Vite Build System</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> React Router DOM</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-purple-500" /> Google Sheets API (opensheet)</li>
-          </ul>
-        </Glass>
-
-        <Glass className="p-6">
-          <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900">Features</h3>
-          <ul className="mt-3 space-y-2 text-sm text-slate-600">
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-indigo-500" /> Glassmorphism UI</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-cyan-500" /> Smooth animations</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Mobile-first responsive</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> WhatsApp order integration</li>
-            <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-purple-500" /> Live Google Sheet data</li>
-          </ul>
-        </Glass>
-
-        <Glass className="p-6 md:col-span-2">
-          <div className="flex items-center gap-4">
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-lg shadow-slate-900/25">
-              <span className="text-lg font-bold">&lt;/&gt;</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">About the Developer</h3>
-              <p className="mt-1 text-sm text-slate-600">
-                Passionate full-stack developer crafting modern, performant, and beautiful web experiences. 
-                Specializing in React ecosystems with a strong focus on UX and clean code architecture.
-              </p>
-            </div>
-          </div>
-          <div className="mt-6 flex flex-wrap gap-2">
-            {["React", "TypeScript", "Tailwind", "Node.js", "Next.js", "Python", "UI/UX"].map((skill) => (
-              <span key={skill} className="rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">
-                {skill}
-              </span>
-            ))}
-          </div>
-        </Glass>
-      </div>
-
-      <div className="mt-12 text-center">
-        <p className="text-sm text-slate-500">
-          © {new Date().getFullYear()} EnergaLife • Crafted with care and modern web technologies
-        </p>
-      </div>
+      </Glass>
     </section>
   );
 }
