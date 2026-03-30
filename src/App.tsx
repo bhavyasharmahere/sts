@@ -18,10 +18,10 @@ type CartItem = {
 };
 
 /* ─── Constants ─── */
-const WHATSAPP_NUMBER = "919430591173";
+const WHATSAPP_NUMBER = "910000000000";
 const CART_STORAGE_KEY = "energalife_cart_v2"; // Bumped version for new fields
 const SHEET_ID = "1hYueHnfOzw8yBpzXQ01qKkclaEus6QLm4OeUntCtnVc";
-const SHEET_TAB = "Table1";
+const SHEET_TAB = "STS_CARD";
 const SHEET_ENDPOINT = `https://opensheet.elk.sh/${SHEET_ID}/${encodeURIComponent(SHEET_TAB)}`;
 
 const FALLBACK_PRODUCTS: Product[] = [
