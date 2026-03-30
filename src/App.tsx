@@ -972,7 +972,7 @@ function CartPage({
     if (!items.length || !date) return "#";
     const lines = items.map((item, idx) => `${idx + 1}. ${item.product.name} (${item.product.company}) - Qty: ${item.qty} - Value: ₹${(item.product.price * item.qty).toLocaleString()}`);
     const message = [
-      `Hello STSLife, ${name ? `I am ${name}. ` : ""}I want to place an order:`,
+      `Hello STS Enterpries!, ${name ? `I am ${name}. ` : ""}I want to place an order:`,
       "",
       ...lines,
       "",
@@ -1249,7 +1249,7 @@ function DevPage() {
 
       <div className="mt-20 text-center">
         <p className="text-sm font-medium text-slate-500">
-          © {new Date().getFullYear()} STSLife • Built with ❤️ using modern technologies
+          © {new Date().getFullYear()} STS Enterprises • Built with ❤️ using modern technologies
         </p>
       </div>
     </section>
@@ -1263,7 +1263,7 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-10">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <Logo />
-          <div className="text-sm text-slate-600">© {new Date().getFullYear()} STSLife Enterprises Pvt Ltd. All rights reserved.</div>
+          <div className="text-sm text-slate-600">© {new Date().getFullYear()} STS Enterprises Pvt Ltd. All rights reserved.</div>
           <div className="flex items-center gap-3 text-sm">
             <Link to="/" className="text-slate-600 hover:text-slate-900">Home</Link>
             <span className="text-slate-300">•</span>
