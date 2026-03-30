@@ -8,6 +8,8 @@ type Product = {
   category: string;
   specs: string;
   availability: boolean;
+  price: number;
+  company: string;
 };
 
 type CartItem = {
@@ -17,20 +19,18 @@ type CartItem = {
 
 /* ─── Constants ─── */
 const WHATSAPP_NUMBER = "919430591173";
-const CART_STORAGE_KEY = "energalife_cart_v1";
+const CART_STORAGE_KEY = "energalife_cart_v2"; // Bumped version for new fields
 const SHEET_ID = "1hYueHnfOzw8yBpzXQ01qKkclaEus6QLm4OeUntCtnVc";
-const SHEET_TAB = "Enterprise Product Inventory Sheet Generation";
+const SHEET_TAB = "Table1";
 const SHEET_ENDPOINT = `https://opensheet.elk.sh/${SHEET_ID}/${encodeURIComponent(SHEET_TAB)}`;
 
 const FALLBACK_PRODUCTS: Product[] = [
-  { id: "T 001", name: "High-Voltage Transformer", category: "Electric", specs: "500kVA, 11kV/433V, Oil-cooled", availability: true },
-  { id: "T 002", name: "Three-Phase Induction Motor", category: "Electric", specs: "50 HP, 460V, 1750 RPM", availability: true },
-  { id: "T 003", name: "Industrial Backup Generator", category: "Electric", specs: "1MW, Diesel-Electric, 60Hz", availability: false },
-  { id: "T 004", name: "Enterprise Rackmount UPS", category: "Electric", specs: "10kVA, Double Conversion, 2U", availability: true },
-  { id: "T 005", name: "Smart Power Distribution Unit", category: "Electric", specs: "30A, 208V, 24 Outlets, Networked", availability: true },
-  { id: "T 006", name: "Heavy-Duty Circuit Breaker", category: "Electric", specs: "1000A, 3-Pole, 600VAC", availability: true },
-  { id: "PH-001", name: "CardioStat XR 50mg", category: "Pharma", specs: "Extended release, 30 tablets, prescription", availability: true },
-  { id: "PH-002", name: "NeuroCalm B-Complex", category: "Pharma", specs: "High potency, vegan, 60 capsules, GMP", availability: false },
+  { id: "T 001", name: "High-Voltage Transformer", category: "Electric", specs: "500kVA, 11kV/433V, Oil-cooled", availability: true, price: 250, company: "Surya" },
+  { id: "T 002", name: "Three-Phase Induction Motor", category: "Electric", specs: "50 HP, 460V, 1750 RPM", availability: true, price: 350, company: "Voltas" },
+  { id: "T 003", name: "Industrial Backup Generator", category: "Electric", specs: "1MW, Diesel-Electric, 60Hz", availability: false, price: 40, company: "Syska" },
+  { id: "T 004", name: "Enterprise Rackmount UPS", category: "Electric", specs: "10kVA, Double Conversion, 2U", availability: true, price: 50, company: "Bajaj" },
+  { id: "T 005", name: "Smart Power Distribution Unit", category: "Electric", specs: "30A, 208V, 24 Outlets, Networked", availability: true, price: 40, company: "Syska" },
+  { id: "T 006", name: "Heavy-Duty Circuit Breaker", category: "Electric", specs: "1000A, 3-Pole, 600VAC", availability: true, price: 45, company: "Voltas" },
 ];
 
 /* ─── Utilities ─── */
@@ -90,6 +90,8 @@ function useProducts() {
             category: (r.category ?? r.Category ?? "Electric") as string,
             specs: r.specs ?? r.Specs ?? "",
             availability: String(r.availability ?? r.Availability ?? "TRUE").toUpperCase() === "TRUE",
+            price: Number(r.price ?? r.Price ?? 0),
+            company: r.company ?? r.Company ?? "STS",
           }))
           .filter((p) => p.name && p.id);
         if (!cancelled) setData(mapped.length ? mapped : FALLBACK_PRODUCTS);
@@ -175,7 +177,7 @@ const Logo = () => (
       </svg>
     </div>
     <div className="leading-tight">
-      <div className="text-lg font-semibold tracking-tight text-slate-900">EnergaLife</div>
+      <div className="text-lg font-semibold tracking-tight text-slate-900">STS Enterprises</div>
       <div className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Electric • Pharma</div>
     </div>
   </div>
@@ -276,10 +278,17 @@ const Card = memo(function Card({
             </div>
           </div>
 
-          {/* Product name */}
-          <h3 className="line-clamp-2 text-lg font-semibold leading-snug tracking-tight text-slate-900">
-            {product.name}
-          </h3>
+          {/* Product name & Brand */}
+          <div className="space-y-1">
+            <h3 className="line-clamp-2 text-lg font-bold leading-snug tracking-tight text-slate-900">
+              {product.name}
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                {product.company}
+              </span>
+            </div>
+          </div>
 
           {/* Specs */}
           <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
@@ -287,8 +296,12 @@ const Card = memo(function Card({
             <p className="text-sm leading-relaxed text-slate-600">{product.specs}</p>
           </div>
 
-          {/* Add to cart */}
+          {/* Add to cart & Price */}
           <div className="flex items-center justify-between pt-1">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Price per unit</span>
+              <span className="text-lg font-extrabold text-slate-900">₹{product.price.toLocaleString()}</span>
+            </div>
             <button
               onClick={handleAdd}
               disabled={!available}
@@ -558,34 +571,6 @@ function Hero() {
               ))}
             </div>
           </div>
-          <div className="relative z-10 hidden md:block">
-            <Glass className="ml-auto max-w-md p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-800">Featured snapshot</p>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-700">Live</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {["Efficiency", "Safety", "Support"].map((k) => (
-                  <div key={k} className="rounded-2xl border border-white/60 bg-white/70 p-4 backdrop-blur">
-                    <div className="text-xs text-slate-500">{k}</div>
-                    <div className="mt-1 text-xl font-semibold text-slate-900">99%</div>
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                      <div className="h-full w-[99%] rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 rounded-2xl border border-white/60 bg-gradient-to-b from-white/80 to-white/40 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-slate-900 text-white">24/7</div>
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900">Dedicated enterprise support</div>
-                    <div className="text-xs text-slate-600">Priority SLAs • Remote diagnostics • On-site assistance</div>
-                  </div>
-                </div>
-              </div>
-            </Glass>
-          </div>
         </div>
         <div className="pointer-events-none absolute inset-0 rounded-[36px] ring-1 ring-inset ring-white/30" />
       </div>
@@ -599,7 +584,7 @@ function About() {
     <section id="about" className="mx-auto max-w-7xl scroll-mt-32 px-4 py-16 md:py-24">
       <div className="grid items-start gap-8 md:grid-cols-2">
         <div className="space-y-5">
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">About EnergaLife</div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">About STS Enterprises</div>
           <h2 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">
             A unified platform for electric infrastructure and pharmaceutical supply.
           </h2>
@@ -611,7 +596,7 @@ function About() {
               { k: "15+", v: "Years combined expertise" },
               { k: "120+", v: "SKU catalogue" },
               { k: "99.2%", v: "On-time fulfillment" },
-              { k: "24/7", v: "Priority support" },
+              { k: "100%", v: "Quality Gaurentee" },
             ].map((s) => (
               <Glass key={s.k} className="p-4">
                 <div className="text-2xl font-semibold text-slate-900">{s.k}</div>
@@ -626,7 +611,7 @@ function About() {
             <div className="grid grid-cols-2 gap-[1px] bg-slate-200/60">
               <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?q=80&w=800&auto=format&fit=crop" alt="Facility" loading="lazy" />
               <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1582719478427-2f3f8a1c6d3e?q=80&w=800&auto=format&fit=crop" alt="Electric" loading="lazy" />
-              <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1583511655826-05700d52f4d9?q=80&w=800&auto=format&fit=crop" alt="Pharma" loading="lazy" />
+              <img className="aspect-[4/3] w-full object-cover" src="https://images.https://unsplash.com/photos/a-pile-of-pills-sitting-next-to-each-other-on-top-of-a-table-RS0-h_pyByk&auto=format&fit=crop" alt="Pharma" loading="lazy" />
               <img className="aspect-[4/3] w-full object-cover" src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800&auto=format&fit=crop" alt="Care" loading="lazy" />
             </div>
           </Glass>
@@ -722,44 +707,58 @@ function Contact() {
               Get in touch for quotations, compliance documentation, or site assessments. Our team responds within one business day.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <a href="tel:+910000000000" className="group rounded-2xl border border-slate-200 bg-white/70 p-4 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg">
+              <a href="tel:+919430531173" className="group rounded-2xl border border-slate-200 bg-white/70 p-4 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg">
                 <div className="text-xs uppercase tracking-widest text-slate-500">Phone</div>
-                <div className="mt-1 text-lg font-semibold text-slate-900">+91 00000 00000</div>
+                <div className="mt-1 text-lg font-semibold text-slate-900">+91 94305 91173</div>
                 <div className="mt-2 text-xs text-emerald-700">Tap to call →</div>
               </a>
-              <a href="mailto:hello@energalife.example" className="group rounded-2xl border border-slate-200 bg-white/70 p-4 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg">
+              <a href="mailto:hello@STSlife.example" className="group rounded-2xl border border-slate-200 bg-white/70 p-4 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg">
                 <div className="text-xs uppercase tracking-widest text-slate-500">Email</div>
-                <div className="mt-1 text-lg font-semibold text-slate-900">hello@energalife.example</div>
+                <div className="mt-1 text-lg font-semibold text-slate-900">COMMING SOON</div>
                 <div className="mt-2 text-xs text-emerald-700">Write to us →</div>
               </a>
             </div>
           </div>
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              const name = fd.get("name");
-              const qty = fd.get("qty");
-              const date = fd.get("date");
-              const msg = `Hi, I'm ${name}. I want an enterprise quote. Quantity: ${qty}. Desired date: ${date}.`;
-              window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
-            }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            const fd = new FormData(e.currentTarget);
+            const name = fd.get("name")?.toString() || "";
+            const phone = fd.get("phone")?.toString() || "";
+            const msg = `Hi, I'm ${name}. I want an enterprise quote. My phone number is ${phone}.`;
+            
+            window.open(
+              `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`,
+              "_blank"
+             );
+           }}
             className="rounded-[28px] border border-white/60 bg-white/60 p-6 backdrop-blur-xl"
           >
+
             <div className="grid gap-4">
               <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Full name</label>
-                <input name="name" required placeholder="Your name" className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60" />
+                <input
+                type="text"
+                name="name"
+                placeholder="Your name"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60"
+                />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Estimated quantity</label>
-                  <input name="qty" required placeholder="e.g., 50 units" className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Desired date of receiving</label>
-                  <input name="date" type="date" required className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60" />
-                </div>
+              {/* PHONE */}
+              <div>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">
+                  Phone number
+                  </label>
+                  <input
+                  type="tel"
+                  name="phone"
+                  required
+                  placeholder="10-digit phone"
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-200/60"
+                  />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Message</label>
@@ -967,23 +966,26 @@ function CartPage({
   const [name, setName] = useState("");
 
   const totalItems = useMemo(() => items.reduce((sum, item) => sum + item.qty, 0), [items]);
+  const netPrice = useMemo(() => items.reduce((sum, item) => sum + (item.product.price * item.qty), 0), [items]);
 
   const whatsappUrl = useMemo(() => {
     if (!items.length || !date) return "#";
-    const lines = items.map((item, idx) => `${idx + 1}. ${item.product.name} (${item.product.id}) - Qty: ${item.qty}`);
+    const lines = items.map((item, idx) => `${idx + 1}. ${item.product.name} (${item.product.company}) - Qty: ${item.qty} - Value: ₹${(item.product.price * item.qty).toLocaleString()}`);
     const message = [
-      `Hello EnergaLife, ${name ? `I am ${name}. ` : ""}I want to place an order:`,
+      `Hello STSLife, ${name ? `I am ${name}. ` : ""}I want to place an order:`,
       "",
       ...lines,
       "",
+      `Net Evaluated Price: ₹${netPrice.toLocaleString()}`,
       `Desired date of order receiving: ${date}`,
       notes ? `Additional note: ${notes}` : "",
+      "",
       "Please confirm availability and quotation.",
     ]
       .filter(Boolean)
       .join("\n");
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
-  }, [items, date, notes, name]);
+  }, [items, date, notes, name, netPrice]);
 
   return (
     <section className="relative mx-auto max-w-7xl px-4 py-12 md:py-16">
@@ -991,8 +993,8 @@ function CartPage({
       <div className="mb-10 flex items-end justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">Cart</div>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">Finalize your order request</h1>
-          <p className="mt-3 max-w-2xl text-lg text-slate-600">Review products, set quantity, choose one receiving date, and send the full order to WhatsApp.</p>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">Finalize order request</h1>
+          <p className="mt-3 max-w-2xl text-lg text-slate-600">Review products, net evaluated price, and send the full order to WhatsApp.</p>
         </div>
         {!!items.length && (
           <button
@@ -1032,8 +1034,12 @@ function CartPage({
                   <CategoryIcon category={item.product.category} />
                   <div>
                     <h3 className="text-base font-semibold text-slate-900">{item.product.name}</h3>
-                    <p className="mt-0.5 text-sm text-slate-500">{item.product.id} • {item.product.category}</p>
-                    <p className="mt-0.5 text-xs text-slate-400">{item.product.specs}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">{item.product.company}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <p className="text-sm text-slate-500">{item.product.id}</p>
+                    </div>
+                    <div className="mt-1 text-sm font-bold text-slate-900">₹{(item.product.price * item.qty).toLocaleString()}</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white/80">
@@ -1063,10 +1069,20 @@ function CartPage({
                 </div>
               ))}
             </div>
+            <div className="border-t border-slate-200/70 bg-slate-50/50 p-6">
+               <div className="flex items-center justify-between text-lg font-bold text-slate-900">
+                 <span>Net Evaluated Price</span>
+                 <span className="text-2xl text-indigo-600">₹{netPrice.toLocaleString()}</span>
+               </div>
+               <div className="mt-4 flex items-center gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm font-medium text-amber-800">
+                 <span className="text-xl">✨</span>
+                 <p>You may get extra discounts while receiving the order.</p>
+               </div>
+            </div>
           </Glass>
 
           <Glass className="p-6">
-            <h2 className="text-xl font-semibold text-slate-900">Order details</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Delivery details</h2>
             <div className="mt-5 space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500">Your name</label>
@@ -1126,50 +1142,116 @@ function CartPage({
 /* ─── Developer Page ─── */
 function DevPage() {
   return (
-    <section className="relative mx-auto max-w-7xl px-4 py-12 md:py-16">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(600px_300px_at_50%_0%,rgba(99,102,241,0.12),transparent)]" />
-      <Glass className="p-8 md:p-12">
-        <div className="mx-auto max-w-2xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 backdrop-blur">Developer</div>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
-            Developer <span className="font-mono text-cyan-600">&lt;/&gt;</span>
-          </h1>
-          <p className="mt-4 text-lg text-slate-600">
-            Built with modern web technologies for a premium enterprise experience.
-          </p>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white/70 p-5 backdrop-blur">
-              <div className="text-sm font-semibold text-slate-900">Frontend</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {["React", "TypeScript", "React Router", "TailwindCSS"].map((tech) => (
-                  <span key={tech} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                    {tech}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/70 p-5 backdrop-blur">
-              <div className="text-sm font-semibold text-slate-900">Features</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {["Glassmorphism", "Animations", "Lazy Loading", "Responsive"].map((feat) => (
-                  <span key={feat} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                    {feat}
-                  </span>
-                ))}
-              </div>
-            </div>
+    <section className="relative mx-auto max-w-7xl px-4 py-16 md:py-28">
+      {/* Decorative Elements */}
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-[10%] left-[10%] h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-[120px]" />
+        <div className="absolute top-[20%] right-[10%] h-[400px] w-[400px] rounded-full bg-cyan-500/10 blur-[100px]" />
+      </div>
+
+      <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr]">
+        <div className="flex flex-col justify-center">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-700">
+            Digital Architect
           </div>
-          <div className="mt-8 rounded-2xl border border-slate-200 bg-gradient-to-r from-emerald-50 to-cyan-50 p-6">
-            <div className="text-sm font-semibold text-slate-900">Data Source</div>
-            <p className="mt-2 text-sm text-slate-600">
-              Products are dynamically fetched from Google Sheets using the OpenSheet API.
-            </p>
-            <code className="mt-3 block rounded-xl bg-slate-900/90 px-4 py-3 text-xs text-emerald-400">
-              https://opensheet.elk.sh/1hYueHnfOzw8yBpzXQ01qKkclaEus6QLm4OeUntCtnVc/Table1
-            </code>
+          <h1 className="mt-6 text-5xl font-extrabold tracking-tight text-slate-900 md:text-7xl">
+             Innovate <br />
+             <span className="bg-gradient-to-r from-indigo-600 to-cyan-500 bg-clip-text text-transparent">Beyond Limits</span>
+          </h1>
+          <p className="mt-8 max-w-lg text-lg leading-relaxed text-slate-600">
+            Crafting high-performance enterprise solutions with a focus on immersive UX, clean architecture, and modern aesthetics.
+          </p>
+          
+          <div className="mt-10 flex flex-wrap gap-4">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/80 bg-white/40 p-4 shadow-sm backdrop-blur-md transition-all hover:border-indigo-200 hover:shadow-lg">
+               <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
+                  <span className="text-xl font-bold">&lt;/&gt;</span>
+               </div>
+               <div>
+                 <div className="text-sm font-bold text-slate-900">Clean Code</div>
+                 <div className="text-xs text-slate-500">TypeScript & React</div>
+               </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-white/80 bg-white/40 p-4 shadow-sm backdrop-blur-md transition-all hover:border-cyan-200 hover:shadow-lg">
+               <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 text-white shadow-lg shadow-cyan-500/20">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                  </svg>
+               </div>
+               <div>
+                 <div className="text-sm font-bold text-slate-900">Modern UX</div>
+                 <div className="text-xs text-slate-500">Glassmorphism UI</div>
+               </div>
+            </div>
           </div>
         </div>
-      </Glass>
+
+        <div className="relative">
+          <Glass className="relative z-10 overflow-hidden p-1 bg-white/20">
+            <div className="rounded-[24px] bg-white p-8 md:p-12">
+               <div className="flex flex-col items-center text-center">
+                  <div className="group relative mb-8">
+                     <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 blur-xl opacity-20 transition-opacity group-hover:opacity-40" />
+                     <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-white shadow-2xl">
+                        {/* Profile Picture Placeholder */}
+                        <div className="grid h-full w-full place-items-center bg-slate-50 text-slate-200">
+                           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                              <circle cx="12" cy="7" r="4" />
+                           </svg>
+                        </div>
+                     </div>
+                  </div>
+                  <h2 className="text-3xl font-extrabold text-slate-900">Lead Web Developer</h2>
+                  <p className="mt-3 font-mono text-sm font-semibold tracking-widest text-indigo-600 uppercase">React Full Stack</p>
+                  
+                  <div className="mt-8 h-px w-full bg-slate-100" />
+                  
+                  <div className="mt-8 grid w-full grid-cols-2 gap-6 text-left md:grid-cols-3">
+                     {[
+                       { label: "React 18", icon: "⚛️" },
+                       { label: "TypeScript", icon: "📘" },
+                       { label: "Tailwind", icon: "🎨" },
+                       { label: "Vite", icon: "⚡" },
+                       { label: "Node.js", icon: "🟢" },
+                       { label: "Next.js", icon: "🖤" },
+                     ].map((item) => (
+                       <div key={item.label} className="group/item flex items-center gap-2 rounded-xl border border-slate-50 bg-slate-50/50 p-3 transition-colors hover:bg-slate-50">
+                          <span className="text-lg transition-transform group-hover/item:scale-125">{item.icon}</span>
+                          <span className="text-xs font-bold text-slate-700">{item.label}</span>
+                       </div>
+                     ))}
+                  </div>
+
+                  <div className="mt-10 flex w-full flex-col gap-4">
+                     <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 text-left">
+                        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Site Features</div>
+                        <div className="flex flex-wrap gap-2">
+                           {["Dynamic Sheets API", "WhatsApp Integration", "Cart Persistence", "Mobile First", "SEO Optimized"].map(f => (
+                             <span key={f} className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600">
+                                <span className="h-1 w-1 rounded-full bg-indigo-500" />
+                                {f}
+                             </span>
+                           ))}
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+          </Glass>
+          
+          {/* Background Symbol */}
+          <div className="absolute -bottom-10 -right-10 pointer-events-none select-none text-[200px] font-black text-slate-900/5 leading-none">
+             &lt;/&gt;
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-20 text-center">
+        <p className="text-sm font-medium text-slate-500">
+          © {new Date().getFullYear()} STSLife • Built with ❤️ using modern technologies
+        </p>
+      </div>
     </section>
   );
 }
@@ -1181,7 +1263,7 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-10">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <Logo />
-          <div className="text-sm text-slate-600">© {new Date().getFullYear()} EnergaLife Enterprises Pvt Ltd. All rights reserved.</div>
+          <div className="text-sm text-slate-600">© {new Date().getFullYear()} STSLife Enterprises Pvt Ltd. All rights reserved.</div>
           <div className="flex items-center gap-3 text-sm">
             <Link to="/" className="text-slate-600 hover:text-slate-900">Home</Link>
             <span className="text-slate-300">•</span>
